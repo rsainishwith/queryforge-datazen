@@ -291,130 +291,98 @@ var server = http.createServer(function(req, res) {
           log('REQ', 'CreateFolder status: ' + folderResult.status);
           log('REQ', 'CreateFolder body: ' + folderResult.body);
 
-     // ── Step 2b: Skip delete, use updateObject for existing files ──
-log('REQ', 'Preparing to deploy objects...');
+      // ── Step 3: Upload Data Model ──────────────────────
+          log('REQ', 'Uploading data model...');
+          var dataModelXml = '<?xml version="1.0" encoding="utf-8"?>\n' +
+            '<dataModel xmlns="http://xmlns.oracle.com/oxp/xmlp" version="2.0" ' +
+            'xmlns:xdm="http://xmlns.oracle.com/oxp/xmlp" ' +
+            'xmlns:xsd="http://wwww.w3.org/2001/XMLSchema" ' +
+            'defaultDataSourceRef="ApplicationDB_FSCM">\n' +
+            '<description><![CDATA[QueryForgeDataZenDataModel_csv]]></description>\n' +
+            '<dataProperties>\n' +
+            '<property name="include_parameters" value="false"/>\n' +
+            '<property name="include_null_Element" value="false"/>\n' +
+            '<property name="include_rowsettag" value="false"/>\n' +
+            '<property name="xml_tag_case" value="upper"/>\n' +
+            '<property name="generate_output_format" value="xml"/>\n' +
+            '</dataProperties>\n' +
+            '<dataSets>\n' +
+            '<dataSet name="sqlResultsSet" type="simple">\n' +
+            '<sql dataSourceRef="ApplicationDB_FSCM" nsQuery="true" sp="true" xmlRowTagName="" bindMultiValueAsCommaSepStr="false">\n' +
+            '<![CDATA[DECLARE\n' +
+            '    type sys_refcursor is REF CURSOR;\n' +
+            '    xdo_cursor  sys_refcursor;\n' +
+            '    l_sql_query  RAW(32767);\n' +
+            '    var11       CLOB := \'\';\n' +
+            '    l_encoded_clob CLOB := :sql_query;\n' +
+            '    l_decoded_clob CLOB;\n' +
+            '    l_chunk_size INTEGER := 32000;\n' +
+            '    l_buffer VARCHAR2(32767);\n' +
+            '    l_pos INTEGER := 1;\n' +
+            '    l_length INTEGER := DBMS_LOB.getlength(l_encoded_clob);\n' +
+            'BEGIN\n' +
+            '    DBMS_LOB.createtemporary(l_decoded_clob, TRUE);\n' +
+            '    WHILE l_pos <= l_length LOOP\n' +
+            '        DBMS_LOB.READ(l_encoded_clob, l_chunk_size, l_pos, l_buffer);\n' +
+            '        l_sql_query := UTL_RAW.CAST_TO_RAW(l_buffer);\n' +
+            '        var11 := TO_CLOB(UTL_RAW.CAST_TO_VARCHAR2(UTL_ENCODE.BASE64_DECODE(l_sql_query)));\n' +
+            '        DBMS_LOB.writeappend(l_decoded_clob, LENGTH(var11), var11);\n' +
+            '        l_pos := l_pos + l_chunk_size;\n' +
+            '    END LOOP;\n' +
+            '    OPEN :xdo_cursor FOR l_decoded_clob;\n' +
+            '    DBMS_LOB.freetemporary(l_decoded_clob);\n' +
+            'END;]]>\n' +
+            '</sql>\n' +
+            '</dataSet>\n' +
+            '</dataSets>\n' +
+            '<output rootName="DATA_DS" uniqueRowName="false">\n' +
+            '<nodeList name="sqlResultsSet"/>\n' +
+            '</output>\n' +
+            '<eventTriggers/>\n' +
+            '<lexicals/>\n' +
+            '<parameters>\n' +
+            '<parameter name="sql_query" dataType="xsd:string" rowPlacement="1">\n' +
+            '<input label="sql_query"/>\n' +
+            '</parameter>\n' +
+            '<parameter name="xdo_cursor" dataType="xsd:string" rowPlacement="1">\n' +
+            '<input label="xdo_cursor"/>\n' +
+            '</parameter>\n' +
+            '</parameters>\n' +
+            '<valueSets/>\n' +
+            '<bursting/>\n' +
+            '</dataModel>';
 
-async function deployBIPObject(fusionUrl, username, password, objectType, path, zippedB64) {
-  // First try uploadObject, if fails with "already exist" try updateObject
-  var uploadResult = await uploadBIPObject(fusionUrl, username, password, objectType, path, zippedB64);
-  if (uploadResult.status === 200 && !uploadResult.body.includes('Fault')) {
-    return uploadResult;
-  }
-  if (uploadResult.body.includes('already exist')) {
-    log('REQ', 'Object exists, updating instead...');
-    var soap = '<?xml version="1.0" encoding="UTF-8"?>' +
-      '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
-      '<soapenv:Header/><soapenv:Body>' +
-      '<v2:updateObject>' +
-      '<v2:objectAbsolutePath>' + path + '</v2:objectAbsolutePath>' +
-      '<v2:objectType>' + objectType + '</v2:objectType>' +
-      '<v2:objectZippedData>' + zippedB64 + '</v2:objectZippedData>' +
-      '<v2:userID>' + username + '</v2:userID>' +
-      '<v2:password>' + password + '</v2:password>' +
-      '</v2:updateObject>' +
-      '</soapenv:Body></soapenv:Envelope>';
-    var buf = Buffer.from(soap, 'utf8');
-    var parsed = url.parse(fusionUrl + '/xmlpserver/services/v2/CatalogService');
-    return await doRequest(parsed, 'POST', {
-      'Content-Type': 'text/xml; charset=UTF-8',
-      'Content-Length': buf.length,
-      'SOAPAction': 'updateObject',
-      'Accept-Encoding': 'identity'
-    }, buf);
-  }
-  return uploadResult;
-}
+          var zip1 = new JSZip();
+          zip1.file('QueryForgeDataZenDataModel_csv.xdm', dataModelXml);
+          var dmZipped = await zip1.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+          var dmB64    = dmZipped.toString('base64');
+          var dmResult = await uploadBIPObject(fusionUrl, username, password, 'xdmz',
+            '/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv', dmB64);
+          log('REQ', 'UploadDM status: ' + dmResult.status);
+          log('REQ', 'UploadDM body: ' + dmResult.body);
 
-// ── Step 3: Deploy Data Model ──────────────────────
-log('REQ', 'Uploading data model...');
-var dataModelXml = '<?xml version="1.0" encoding="utf-8"?>\n' +
-  '<dataModel xmlns="http://xmlns.oracle.com/oxp/xmlp" version="2.0" ' +
-  'xmlns:xdm="http://xmlns.oracle.com/oxp/xmlp" ' +
-  'xmlns:xsd="http://wwww.w3.org/2001/XMLSchema" ' +
-  'defaultDataSourceRef="ApplicationDB_FSCM">\n' +
-  '<description><![CDATA[QueryForgeDataZenDataModel_csv]]></description>\n' +
-  '<dataProperties>\n' +
-  '<property name="include_parameters" value="false"/>\n' +
-  '<property name="include_null_Element" value="false"/>\n' +
-  '<property name="include_rowsettag" value="false"/>\n' +
-  '<property name="xml_tag_case" value="upper"/>\n' +
-  '<property name="generate_output_format" value="xml"/>\n' +
-  '</dataProperties>\n' +
-  '<dataSets>\n' +
-  '<dataSet name="sqlResultsSet" type="simple">\n' +
-  '<sql dataSourceRef="ApplicationDB_FSCM" nsQuery="true" sp="true" xmlRowTagName="" bindMultiValueAsCommaSepStr="false">\n' +
-  '<![CDATA[DECLARE\n' +
-  '    type sys_refcursor is REF CURSOR;\n' +
-  '    xdo_cursor  sys_refcursor;\n' +
-  '    l_sql_query  RAW(32767);\n' +
-  '    var11       CLOB := \'\';\n' +
-  '    l_encoded_clob CLOB := :sql_query;\n' +
-  '    l_decoded_clob CLOB;\n' +
-  '    l_chunk_size INTEGER := 32000;\n' +
-  '    l_buffer VARCHAR2(32767);\n' +
-  '    l_pos INTEGER := 1;\n' +
-  '    l_length INTEGER := DBMS_LOB.getlength(l_encoded_clob);\n' +
-  'BEGIN\n' +
-  '    DBMS_LOB.createtemporary(l_decoded_clob, TRUE);\n' +
-  '    WHILE l_pos <= l_length LOOP\n' +
-  '        DBMS_LOB.READ(l_encoded_clob, l_chunk_size, l_pos, l_buffer);\n' +
-  '        l_sql_query := UTL_RAW.CAST_TO_RAW(l_buffer);\n' +
-  '        var11 := TO_CLOB(UTL_RAW.CAST_TO_VARCHAR2(UTL_ENCODE.BASE64_DECODE(l_sql_query)));\n' +
-  '        DBMS_LOB.writeappend(l_decoded_clob, LENGTH(var11), var11);\n' +
-  '        l_pos := l_pos + l_chunk_size;\n' +
-  '    END LOOP;\n' +
-  '    OPEN :xdo_cursor FOR l_decoded_clob;\n' +
-  '    DBMS_LOB.freetemporary(l_decoded_clob);\n' +
-  'END;]]>\n' +
-  '</sql>\n' +
-  '</dataSet>\n' +
-  '</dataSets>\n' +
-  '<output rootName="DATA_DS" uniqueRowName="false">\n' +
-  '<nodeList name="sqlResultsSet"/>\n' +
-  '</output>\n' +
-  '<eventTriggers/>\n' +
-  '<lexicals/>\n' +
-  '<parameters>\n' +
-  '<parameter name="sql_query" dataType="xsd:string" rowPlacement="1">\n' +
-  '<input label="sql_query"/>\n' +
-  '</parameter>\n' +
-  '<parameter name="xdo_cursor" dataType="xsd:string" rowPlacement="1">\n' +
-  '<input label="xdo_cursor"/>\n' +
-  '</parameter>\n' +
-  '</parameters>\n' +
-  '<valueSets/>\n' +
-  '<bursting/>\n' +
-  '</dataModel>';
+          // ── Step 4: Upload Report ──────────────────────────
+          log('REQ', 'Uploading report...');
+          var reportXml = '<?xml version="1.0" encoding="utf-8"?>\n' +
+            '<report xmlns="http://xmlns.oracle.com/oxp/xmlp" version="2.0">\n' +
+            '<description><![CDATA[QueryForgeDataZenReport_csv]]></description>\n' +
+            '<dataModelReference>/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm</dataModelReference>\n' +
+            '<defaultOutputFormat>csv</defaultOutputFormat>\n' +
+            '<defaultTemplate>blank</defaultTemplate>\n' +
+            '<templates>\n' +
+           '<template label="blank" type="xpt" outputFormat="csv" defaultOutput="true" locale="en-US" url="blank.xpt"/>\n' +
+            '</templates>\n' +
+            '</report>';
 
-var zip1 = new JSZip();
-zip1.file('QueryForgeDataZenDataModel_csv.xdm', dataModelXml);
-var dmZipped = await zip1.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
-var dmB64 = dmZipped.toString('base64');
-var dmResult = await deployBIPObject(fusionUrl, username, password, 'xdmz', '/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv', dmB64);
-log('REQ', 'UploadDM status: ' + dmResult.status);
-log('REQ', 'UploadDM body: ' + dmResult.body);
+          var zip2 = new JSZip();
+          zip2.file('QueryForgeDataZenReport_csv.xdo', reportXml);
+          var rptZipped = await zip2.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+          var rptB64    = rptZipped.toString('base64');
+          var rptResult = await uploadBIPObject(fusionUrl, username, password, 'xdoz',
+            '/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv', rptB64);
+          log('REQ', 'UploadReport status: ' + rptResult.status);
+          log('REQ', 'UploadReport body: ' + rptResult.body);
 
-// ── Step 4: Deploy Report ──────────────────────────
-log('REQ', 'Uploading report...');
-var reportXml = '<?xml version="1.0" encoding="utf-8"?>\n' +
-  '<report xmlns="http://xmlns.oracle.com/oxp/xmlp" version="2.0">\n' +
-  '<description><![CDATA[QueryForgeDataZenReport_csv]]></description>\n' +
-  '<dataModelReference>/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm</dataModelReference>\n' +
-  '<defaultOutputFormat>csv</defaultOutputFormat>\n' +
-  '<defaultTemplate>blank</defaultTemplate>\n' +
-  '<templates>\n' +
-  '<template label="blank" type="xpt" outputFormat="csv" defaultOutput="true" locale="en-US" url="blank.xpt"/>\n' +
-  '</templates>\n' +
-  '</report>';
-
-var zip2 = new JSZip();
-zip2.file('QueryForgeDataZenReport_csv.xdo', reportXml);
-var rptZipped = await zip2.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
-var rptB64 = rptZipped.toString('base64');
-var rptResult = await deployBIPObject(fusionUrl, username, password, 'xdoz', '/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv', rptB64);
-log('REQ', 'UploadReport status: ' + rptResult.status);
-log('REQ', 'UploadReport body: ' + rptResult.body);
-          
           // ── Step 5: Upload Blank Template ─────────────────
           log('REQ', 'Uploading template...');
           var templateXml = '<?xml version="1.0" encoding="utf-8"?>\n' +
