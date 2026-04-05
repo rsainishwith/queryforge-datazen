@@ -48,6 +48,96 @@ function setCORSHeaders(res) {
   res.setHeader('Access-Control-Expose-Headers','*');
 }
 
+function escapeXml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+function soapRequest(fusionUrl, soapPath, basicAuth, action, body) {
+  return new Promise(function (resolve, reject) {
+    var parsed = url.parse(fusionUrl);
+    var protocol = parsed.protocol === 'https:' ? https : http;
+    var bodyBuf = Buffer.from(body, 'utf-8');
+    var opts = {
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path: soapPath, method: 'POST',
+      headers: {
+        'Authorization'  : basicAuth,
+        'Content-Type'   : 'text/xml; charset=utf-8',
+        'Content-Length' : bodyBuf.length,
+        'SOAPAction'     : action
+      },
+      rejectUnauthorized: false
+    };
+    var r = protocol.request(opts, function (resp) {
+      var chunks = [];
+      resp.on('data', function (c) { chunks.push(c); });
+      resp.on('end', function () {
+        resolve({ status: resp.statusCode, body: Buffer.concat(chunks).toString('utf-8') });
+      });
+    });
+    r.on('error', reject);
+    r.write(bodyBuf);
+    r.end();
+  });
+}
+
+function parseFolderItems(soapXml, parentPath) {
+  var items = [];
+  var itemRegex = /<[^>]*?:?item\b[^>]*>([\s\S]*?)<\/[^>]*?:?item>/gi;
+  var match;
+  while ((match = itemRegex.exec(soapXml)) !== null) {
+    var block     = match[1];
+    var nameMatch = block.match(/<[^>]*?:?name[^>]*>([^<]+)<\/[^>]*?:?name>/i);
+    var typeMatch = block.match(/<[^>]*?:?objectType[^>]*>([^<]+)<\/[^>]*?:?objectType>/i);
+    var pathMatch = block.match(/<[^>]*?:?path[^>]*>([^<]+)<\/[^>]*?:?path>/i);
+    if (!nameMatch) continue;
+    var name     = nameMatch[1].trim();
+    var objType  = typeMatch ? typeMatch[1].trim().toLowerCase() : '';
+    var fullPath = pathMatch ? pathMatch[1].trim() : (parentPath + '/' + name);
+    if (objType === 'folder' || objType === 'briefingbook') {
+      items.push({ name: name, path: fullPath, type: 'folder' });
+    } else if (name.endsWith('.xdm') || objType === 'datamodel' || objType === 'xdm') {
+      items.push({ name: name, path: fullPath, type: 'xdm' });
+    }
+  }
+  if (items.length === 0) {
+    var pathItems = soapXml.match(/\/shared\/[^"<\s]+/g);
+    if (pathItems) {
+      var seen = new Set();
+      pathItems.forEach(function (p) {
+        if (seen.has(p)) return;
+        seen.add(p);
+        var parts    = p.split('/');
+        var lastName = parts[parts.length - 1];
+        if (lastName.endsWith('.xdm')) {
+          items.push({ name: lastName, path: p, type: 'xdm' });
+        }
+      });
+    }
+  }
+  return items;
+}
+
+function extractSqlFromXdm(xdmXml) {
+  var cdataMatch = xdmXml.match(/<sql[^>]*>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/sql>/i);
+  if (cdataMatch) return cdataMatch[1].trim();
+  var sqlMatch = xdmXml.match(/<sql[^>]*>([\s\S]*?)<\/sql>/i);
+  if (sqlMatch) return sqlMatch[1].trim();
+  return '';
+}
+
+function extractDataSource(xdmXml) {
+  var dsMatch = xdmXml.match(/defaultDataSourceRef="([^"]+)"/i);
+  if (dsMatch) return dsMatch[1];
+  var dsMatch2 = xdmXml.match(/dataSourceRef="([^"]+)"/i);
+  if (dsMatch2) return dsMatch2[1];
+  return '';
+}
+
+
 // ── Create the server ──
 var server = http.createServer(function(req, res) {
 
@@ -478,19 +568,37 @@ var server = http.createServer(function(req, res) {
         return res.end(JSON.stringify({ ok: false, message: 'Missing fusionUrl, username, or password' }));
       }
       var basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
-      var soapBody =
-        '<?xml version="1.0" encoding="utf-8"?>' +
-        '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" ' +
-        'xmlns:sawsoap="com.siebel.analytics.web/soap/v2">' +
-        '<soap:Body>' +
-        '<sawsoap:getFolderContents>' +
-        '<sawsoap:path>' + escapeXml(folderPath) + '</sawsoap:path>' +
-        '<sawsoap:options><sawsoap:field name="objectType" value=""/></sawsoap:options>' +
-        '</sawsoap:getFolderContents>' +
-        '</soap:Body>' +
-        '</soap:Envelope>';
+
+// Step 1: Get session token first
+var loginSoap =
+  '<?xml version="1.0" encoding="UTF-8"?>' +
+  '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:saw="com.siebel.analytics.web/soap/v2">' +
+  '<soapenv:Body><saw:logon>' +
+  '<saw:name>' + escapeXml(username) + '</saw:name>' +
+  '<saw:password>' + escapeXml(password) + '</saw:password>' +
+  '</saw:logon></soapenv:Body></soapenv:Envelope>';
+
+var loginResult = await soapRequest(fusionUrl, '/analytics-ws/saw.dll?SoapImpl=nQSessionService', basicAuth, 'logon', loginSoap);
+var sessionMatch = loginResult.body.match(/<sessionID[^>]*>([^<]+)<\/sessionID>/i);
+if (!sessionMatch) {
+  res.writeHead(401, { 'Content-Type': 'application/json' });
+  return res.end(JSON.stringify({ ok: false, message: 'Could not obtain session token — check credentials' }));
+}
+var sessionID = sessionMatch[1];
+
+// Step 2: Now fetch folder contents with sessionID
+var soapBody =
+  '<?xml version="1.0" encoding="utf-8"?>' +
+  '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:saw="com.siebel.analytics.web/soap/v2">' +
+  '<soapenv:Body>' +
+  '<saw:getFolderContents>' +
+  '<saw:path>' + escapeXml(folderPath) + '</saw:path>' +
+  '<saw:sessionID>' + sessionID + '</saw:sessionID>' +
+  '</saw:getFolderContents>' +
+  '</soapenv:Body></soapenv:Envelope>';
       try {
-        var result = await soapRequest(fusionUrl, '/analytics/saw.dll?SoapImpl=nQSessionService', basicAuth, 'getFolderContents', soapBody);
+        //var result = await soapRequest(fusionUrl, '/analytics/saw.dll?SoapImpl=nQSessionService', basicAuth, 'getFolderContents', soapBody);
+        var result = await soapRequest(fusionUrl, '/analytics-ws/saw.dll?SoapImpl=webCatalogService', basicAuth, 'getFolderContents', soapBody);
         if (result.status !== 200) {
           res.writeHead(result.status, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ ok: false, message: 'Fusion SOAP error HTTP ' + result.status, detail: result.body }));
@@ -629,91 +737,3 @@ var server = http.createServer(function(req, res) {
 server.listen(PORT, '0.0.0.0', function() {
   console.log(`Proxy running on port ${PORT}`);
 });
-function escapeXml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-}
-
-function soapRequest(fusionUrl, soapPath, basicAuth, action, body) {
-  return new Promise(function (resolve, reject) {
-    var parsed = url.parse(fusionUrl);
-    var protocol = parsed.protocol === 'https:' ? https : http;
-    var bodyBuf = Buffer.from(body, 'utf-8');
-    var opts = {
-      hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: soapPath, method: 'POST',
-      headers: {
-        'Authorization'  : basicAuth,
-        'Content-Type'   : 'text/xml; charset=utf-8',
-        'Content-Length' : bodyBuf.length,
-        'SOAPAction'     : action
-      },
-      rejectUnauthorized: false
-    };
-    var r = protocol.request(opts, function (resp) {
-      var chunks = [];
-      resp.on('data', function (c) { chunks.push(c); });
-      resp.on('end', function () {
-        resolve({ status: resp.statusCode, body: Buffer.concat(chunks).toString('utf-8') });
-      });
-    });
-    r.on('error', reject);
-    r.write(bodyBuf);
-    r.end();
-  });
-}
-
-function parseFolderItems(soapXml, parentPath) {
-  var items = [];
-  var itemRegex = /<[^>]*?:?item\b[^>]*>([\s\S]*?)<\/[^>]*?:?item>/gi;
-  var match;
-  while ((match = itemRegex.exec(soapXml)) !== null) {
-    var block     = match[1];
-    var nameMatch = block.match(/<[^>]*?:?name[^>]*>([^<]+)<\/[^>]*?:?name>/i);
-    var typeMatch = block.match(/<[^>]*?:?objectType[^>]*>([^<]+)<\/[^>]*?:?objectType>/i);
-    var pathMatch = block.match(/<[^>]*?:?path[^>]*>([^<]+)<\/[^>]*?:?path>/i);
-    if (!nameMatch) continue;
-    var name     = nameMatch[1].trim();
-    var objType  = typeMatch ? typeMatch[1].trim().toLowerCase() : '';
-    var fullPath = pathMatch ? pathMatch[1].trim() : (parentPath + '/' + name);
-    if (objType === 'folder' || objType === 'briefingbook') {
-      items.push({ name: name, path: fullPath, type: 'folder' });
-    } else if (name.endsWith('.xdm') || objType === 'datamodel' || objType === 'xdm') {
-      items.push({ name: name, path: fullPath, type: 'xdm' });
-    }
-  }
-  if (items.length === 0) {
-    var pathItems = soapXml.match(/\/shared\/[^"<\s]+/g);
-    if (pathItems) {
-      var seen = new Set();
-      pathItems.forEach(function (p) {
-        if (seen.has(p)) return;
-        seen.add(p);
-        var parts    = p.split('/');
-        var lastName = parts[parts.length - 1];
-        if (lastName.endsWith('.xdm')) {
-          items.push({ name: lastName, path: p, type: 'xdm' });
-        }
-      });
-    }
-  }
-  return items;
-}
-
-function extractSqlFromXdm(xdmXml) {
-  var cdataMatch = xdmXml.match(/<sql[^>]*>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/sql>/i);
-  if (cdataMatch) return cdataMatch[1].trim();
-  var sqlMatch = xdmXml.match(/<sql[^>]*>([\s\S]*?)<\/sql>/i);
-  if (sqlMatch) return sqlMatch[1].trim();
-  return '';
-}
-
-function extractDataSource(xdmXml) {
-  var dsMatch = xdmXml.match(/defaultDataSourceRef="([^"]+)"/i);
-  if (dsMatch) return dsMatch[1];
-  var dsMatch2 = xdmXml.match(/dataSourceRef="([^"]+)"/i);
-  if (dsMatch2) return dsMatch2[1];
-  return '';
-}
