@@ -308,7 +308,7 @@ var server = http.createServer(function(req, res) {
           await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
           delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv'), 'utf8');
           await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
-          delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv'), 'utf8');
+          delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm'), 'utf8');
           await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
           
           // ── Step 3: Upload Data Model ──────────────────────
@@ -390,9 +390,7 @@ var server = http.createServer(function(req, res) {
             '<defaultOutputFormat>csv</defaultOutputFormat>\n' +
             '<defaultTemplate>blank</defaultTemplate>\n' +
             '<templates>\n' +
-           '<template label="blank" type="xpt" defaultOutput="true" locale="en-US" url="blank.xpt">\n' +
-           '<file>blank.xpt</file>\n' +
-            '<outputFormat>csv</outputFormat>\n' +
+           '<template label="blank" type="xpt" outputFormat="csv" defaultOutput="true" locale="en-US" url="blank.xpt"/>\n' +
             '</template>\n' +
             '</templates>\n' +
             '</report>';
