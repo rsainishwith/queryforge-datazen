@@ -98,7 +98,7 @@ function doLogout(){
   if(uid){localStorage.removeItem('csWebConns_u'+uid);}
   sessionStorage.removeItem('qfdz_session');
   localStorage.removeItem('qfdz_session');
-  window.location.href='https://queryforge-datazen.vercel.app/login.html';
+  window.location.href='login.html';
 }
 
 async function loadConns(){
