@@ -363,15 +363,31 @@ var server = http.createServer(function(req, res) {
 
           // ── Step 4: Upload Report ──────────────────────────
           log('REQ', 'Uploading report...');
-          var reportXml = '<?xml version="1.0" encoding="utf-8"?>\n' +
-  '<report xmlns="http://xmlns.oracle.com/oxp/xmlp" version="2.0">\n' +
-  '<description><![CDATA[QueryForgeDataZenReport_csv]]></description>\n' +
-  '<dataModelReference>/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm</dataModelReference>\n' +
-  '<defaultOutputFormat>csv</defaultOutputFormat>\n' +
-  '<defaultTemplate>blank</defaultTemplate>\n' +
-  '<templates>\n' +
-  '<template label="blank" type="xpt" outputFormat="csv" defaultOutput="true" defaultLayout="true" locale="en-US" url="blank.xpt" active="true" online="true"/>\n' +
-  '</templates>\n' +
+         var reportXml = '<?xml version = \'1.0\' encoding = \'utf-8\'?>\n' +
+  '<report xmlns="http://xmlns.oracle.com/oxp/xmlp" xmlns:xsd="http://wwww.w3.org/2001/XMLSchema" version="2.0" ' +
+  'dataModel="true" useBipParameters="true" producerName="fin-financialCommon" ' +
+  'parameterVOName="" parameterTaskFlow="" customDataControl="" ' +
+  'cachePerUser="false" cacheSmartRefresh="false" cacheUserRefresh="false">\n' +
+  '   <dataModel url="/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm"/>\n' +
+  '   <description><![CDATA[QueryForgeDataZenReport_csv]]></description>\n' +
+  '   <property name="showControls" value="true"/>\n' +
+  '   <property name="online" value="true"/>\n' +
+  '   <property name="openLinkInNewWindow" value="true"/>\n' +
+  '   <property name="autoRun" value="false"/>\n' +
+  '   <property name="cacheDocument" value="false"/>\n' +
+  '   <property name="showReportLinks" value="true"/>\n' +
+  '   <property name="asynchronousRun" value="false"/>\n' +
+  '   <property name="priority" value="normal"/>\n' +
+  '   <property name="sendOutputAsUrl" value="insLevel"/>\n' +
+  '   <property name="cacheDuration" value="30"/>\n' +
+  '   <property name="controledByExtApp" value="true"/>\n' +
+  '   <property name="ignoreEmailDomainRestrictions" value="false"/>\n' +
+  '   <property name="saveXMLForRepublishing" value="true"/>\n' +
+  '   <property name="disableMakeOutputPublic" value="false"/>\n' +
+  '   <parameters paramPerLine="3" style="parameterLocation:in-horizontal;promptLocation:side;"/>\n' +
+  '   <templates default="blank">\n' +
+  '      <template label="blank" url="blank.xpt" type="xpt" outputFormat="csv" defaultFormat="csv" locale="en_US" active="true" viewOnline="true"/>\n' +
+  '   </templates>\n' +
   '</report>';
 
           var zip2 = new JSZip();
