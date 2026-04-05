@@ -297,7 +297,7 @@ var server = http.createServer(function(req, res) {
             '<dataModel xmlns="http://xmlns.oracle.com/oxp/xmlp" version="2.0" ' +
             'xmlns:xdm="http://xmlns.oracle.com/oxp/xmlp" ' +
             'xmlns:xsd="http://wwww.w3.org/2001/XMLSchema" ' +
-            'defaultDataSourceRef="QueryForgeDataZenDataModel">\n' +
+            'defaultDataSourceRef="ApplicationDB_FSCM">\n' +
             '<description><![CDATA[QueryForgeDataZenDataModel_csv]]></description>\n' +
             '<dataProperties>\n' +
             '<property name="include_parameters" value="false"/>\n' +
@@ -337,7 +337,7 @@ var server = http.createServer(function(req, res) {
             '</dataSets>\n' +
             '<output rootName="DATA_DS" uniqueRowName="false">\n' +
             '<nodeList name="sqlResultsSet"/>\n' +
-            '</o>\n' +
+            '</output>\n' +
             '<eventTriggers/>\n' +
             '<lexicals/>\n' +
             '<parameters>\n' +
