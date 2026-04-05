@@ -130,7 +130,8 @@ function handleLogin() {
   btn.textContent = '⏳ Signing in…';
 
   // API CALL
-  fetch('https://queryforge-backend-jjxx.onrender.com/login', {
+  //fetch('https://queryforge-backend-jjxx.onrender.com/login', 
+  fetch('https://queryforge-backend-mroa.onrender.com/login',{
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -216,7 +217,8 @@ function handleRegister() {
   btn.textContent = '⏳ Creating account…';
 
   // API CALL
-  fetch('https://queryforge-backend-jjxx.onrender.com/register', {
+  //fetch('https://queryforge-backend-jjxx.onrender.com/register', 
+  fetch('https://queryforge-backend-mroa.onrender.com/register', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
