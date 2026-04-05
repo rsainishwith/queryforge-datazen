@@ -202,7 +202,7 @@ async function saveConn(){
 function checkBanner(){document.getElementById('setup-banner').classList.toggle('show',connections.length===0);}
 
 /* ══════════ PROXY ═════════════════════════════════════════════ */
-var PROXY_URL='https://queryforge-backend-jjxx.onrender.com',proxyAvailable=false,proxyChecked=false;
+var PROXY_URL='https://queryforge-backend-mroa.onrender.com',proxyAvailable=false,proxyChecked=false;
 function checkProxy(cb){
   if(proxyChecked){cb(proxyAvailable);return;}
   var el=document.getElementById('proxy-badge');
