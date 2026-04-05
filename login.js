@@ -175,7 +175,8 @@ function handleLogin() {
     showToast('success', 'Welcome back, ' + user.name.split(' ')[0] + '!', 'Redirecting to your workspace...');
 
     setTimeout(() => {
-      window.location.href = 'https://queryforge-datazen.vercel.app/';
+      //window.location.href = 'https://queryforge-datazen.vercel.app/';
+      window.location.href = 'index.html';
     }, 1000);
 
   })
