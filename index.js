@@ -296,14 +296,14 @@ log('REQ', 'Cleaning up existing objects...');
 
 var deleteSoap = function(path) {
   return '<?xml version="1.0" encoding="UTF-8"?>' +
-    '<x:Envelope xmlns:x="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v="http://xmlns.oracle.com/oxp/service/v2">' +
-    '<x:Header/><x:Body>' +
-    '<v:deleteObject>' +
-    '<v:reportObjectAbsolutePathURL>' + path + '</v:reportObjectAbsolutePathURL>' +
-    '<v:userID>' + username + '</v:userID>' +
-    '<v:password>' + password + '</v:password>' +
-    '</v:deleteObject>' +
-    '</x:Body></x:Envelope>';
+    '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
+    '<soapenv:Header/><soapenv:Body>' +
+    '<v2:deleteObject>' +
+    '<v2:objectAbsolutePathURL>' + path + '</v2:objectAbsolutePathURL>' +
+    '<v2:userID>' + username + '</v2:userID>' +
+    '<v2:password>' + password + '</v2:password>' +
+    '</v2:deleteObject>' +
+    '</soapenv:Body></soapenv:Envelope>';
 };
 
 var delParsed = url.parse(fusionUrl + '/xmlpserver/services/v2/CatalogService');
