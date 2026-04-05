@@ -370,13 +370,10 @@ var server = http.createServer(function(req, res) {
             '<defaultOutputFormat>csv</defaultOutputFormat>\n' +
             '<defaultTemplate>blank</defaultTemplate>\n' +
             '<templates>\n' +
-            '<template label="blank">\n' +
+            '<template label="blank" type="xpt" defaultOutput="true" locale="en-US">\n' +
             '<n>blank</n>\n' +
             '<file>blank.xpt</file>\n' +
             '<outputFormat>csv</outputFormat>\n' +
-            '<defaultOutput>true</defaultOutput>\n' +
-            '<type>xpt</type>\n' +
-            '<locale>en-US</locale>\n' +
             '</template>\n' +
             '</templates>\n' +
             '</report>';
