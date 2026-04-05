@@ -291,6 +291,26 @@ var server = http.createServer(function(req, res) {
           log('REQ', 'CreateFolder status: ' + folderResult.status);
           log('REQ', 'CreateFolder body: ' + folderResult.body);
 
+          // ── Step 2b: Delete existing objects if they exist ──
+          log('REQ', 'Cleaning up existing objects...');
+          var deleteSoap = function(path) {
+            return '<?xml version="1.0" encoding="UTF-8"?>' +
+              '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
+              '<soapenv:Header/><soapenv:Body><v2:deleteObject>' +
+              '<v2:userID>' + username + '</v2:userID>' +
+              '<v2:password>' + password + '</v2:password>' +
+              '<v2:reportObjectAbsolutePathURL>' + path + '</v2:reportObjectAbsolutePathURL>' +
+              '</v2:deleteObject></soapenv:Body></soapenv:Envelope>';
+          };
+          var delParsed = url.parse(fusionUrl + '/xmlpserver/services/v2/CatalogService');
+          var delBuf;
+          delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv/blank'), 'utf8');
+          await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
+          delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv'), 'utf8');
+          await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
+          delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv'), 'utf8');
+          await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
+          
           // ── Step 3: Upload Data Model ──────────────────────
           log('REQ', 'Uploading data model...');
           var dataModelXml = '<?xml version="1.0" encoding="utf-8"?>\n' +
@@ -370,7 +390,7 @@ var server = http.createServer(function(req, res) {
             '<defaultOutputFormat>csv</defaultOutputFormat>\n' +
             '<defaultTemplate>blank</defaultTemplate>\n' +
             '<templates>\n' +
-            '<template label="blank" type="xpt" defaultOutput="true" locale="en-US">\n' +
+            '<template label="blank" type="xpt" defaultOutput="true" locale="en-US" url="blank.xpt">\n' +
             '<n>blank</n>\n' +
             '<file>blank.xpt</file>\n' +
             '<outputFormat>csv</outputFormat>\n' +
