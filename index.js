@@ -452,6 +452,269 @@ var server = http.createServer(function(req, res) {
     });
   }
 
+// ══════════════════════════════════════════════════════════════════
+//  CATALOG BROWSER ENDPOINTS  —  add these to your main index.js
+//  before the // ── PROXY (pass-through for everything else) line
+// ══════════════════════════════════════════════════════════════════
+//
+//  Endpoints added:
+//    POST /catalog/folders   — list folder children from Fusion catalog
+//    POST /catalog/xdm       — fetch a .xdm file and extract the SQL
+// ══════════════════════════════════════════════════════════════════
+
+// ── CATALOG: LIST FOLDER CHILDREN ────────────────────────────────
+// POST /catalog/folders
+// Body: { fusionUrl, username, password, path }
+// path defaults to "/shared" if omitted
+// Returns: { ok, folders: [{name, path, type}] }
+//   type = 'folder' | 'xdm'   (xdo files are filtered out)
+if (req.url === '/catalog/folders' && req.method === 'POST') {
+  return getBody(req, async function (data) {
+    var fusionUrl = (data.fusionUrl || '').trim().replace(/\/+$/, '');
+    var username  = (data.username  || '').trim();
+    var password  = (data.password  || '').trim();
+    var folderPath = (data.path || '/shared').trim();
+
+    if (!fusionUrl || !username || !password) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: false, message: 'Missing fusionUrl, username, or password' }));
+    }
+
+    var basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
+
+    // Use Oracle BI Presentation Services SOAP to list catalog items
+    var soapBody =
+      '<?xml version="1.0" encoding="utf-8"?>' +
+      '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" ' +
+      'xmlns:sawsoap="com.siebel.analytics.web/soap/v2">' +
+      '<soap:Body>' +
+      '<sawsoap:getFolderContents>' +
+      '<sawsoap:path>' + escapeXml(folderPath) + '</sawsoap:path>' +
+      '<sawsoap:options>' +
+      '<sawsoap:field name="objectType" value=""/>' +
+      '</sawsoap:options>' +
+      '</sawsoap:getFolderContents>' +
+      '</soap:Body>' +
+      '</soap:Envelope>';
+
+    try {
+      var result = await soapRequest(fusionUrl, '/analytics/saw.dll?SoapImpl=nQSessionService', basicAuth, 'getFolderContents', soapBody);
+
+      if (result.status !== 200) {
+        res.writeHead(result.status, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, message: 'Fusion SOAP error HTTP ' + result.status, detail: result.body }));
+      }
+
+      // Parse items from SOAP response
+      var items = parseFolderItems(result.body, folderPath);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, items: items }));
+
+    } catch (e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, message: 'Request failed: ' + e.message }));
+    }
+  });
+}
+
+// ── CATALOG: FETCH XDM AND EXTRACT SQL ───────────────────────────
+// POST /catalog/xdm
+// Body: { fusionUrl, username, password, path }
+// path = full catalog path to the .xdm file e.g. /shared/Custom/Foo/Bar.xdm
+// Returns: { ok, sql, dataSource, fullXml }
+if (req.url === '/catalog/xdm' && req.method === 'POST') {
+  return getBody(req, async function (data) {
+    var fusionUrl = (data.fusionUrl || '').trim().replace(/\/+$/, '');
+    var username  = (data.username  || '').trim();
+    var password  = (data.password  || '').trim();
+    var xdmPath   = (data.path || '').trim();
+
+    if (!fusionUrl || !username || !password || !xdmPath) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ ok: false, message: 'Missing required fields' }));
+    }
+
+    var basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
+
+    // Use BIP SOAP uploadObject in reverse — use getObjectDefinition
+    var soapBody =
+      '<?xml version="1.0" encoding="utf-8"?>' +
+      '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" ' +
+      'xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
+      '<soapenv:Body>' +
+      '<v2:downloadObject>' +
+      '<v2:reportObjectPath>' + escapeXml(xdmPath) + '</v2:reportObjectPath>' +
+      '</v2:downloadObject>' +
+      '</soapenv:Body>' +
+      '</soapenv:Envelope>';
+
+    try {
+      var result = await soapRequest(fusionUrl, '/xmlpserver/services/v2/BIPReportService', basicAuth, 'downloadObject', soapBody);
+
+      if (result.status !== 200) {
+        res.writeHead(result.status, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ ok: false, message: 'Failed to fetch XDM: HTTP ' + result.status, detail: result.body }));
+      }
+
+      // Extract base64 content from SOAP response → decode → parse XML
+      var b64Match = result.body.match(/<[^>]*downloadObjectReturn[^>]*>([^<]+)<\/[^>]*downloadObjectReturn>/);
+      if (!b64Match) {
+        // Try alternate response tag names
+        b64Match = result.body.match(/<[^>]*return[^>]*>([A-Za-z0-9+/=\s]+)<\/[^>]*return>/);
+      }
+
+      var xdmXml = '';
+      if (b64Match) {
+        var b64 = b64Match[1].replace(/\s/g, '');
+        xdmXml = Buffer.from(b64, 'base64').toString('utf-8');
+      } else {
+        // Maybe returned inline — look for dataModel XML directly
+        var inlineMatch = result.body.match(/<dataModel[\s\S]*<\/dataModel>/);
+        if (inlineMatch) {
+          xdmXml = inlineMatch[0];
+        } else {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ ok: false, message: 'Could not extract XDM content from response', raw: result.body.slice(0, 500) }));
+        }
+      }
+
+      // Extract SQL from XDM XML — it's inside <![CDATA[...]]> within <sql> tags
+      var sql = extractSqlFromXdm(xdmXml);
+      var dataSource = extractDataSource(xdmXml);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: true,
+        sql: sql,
+        dataSource: dataSource,
+        xdmPath: xdmPath
+      }));
+
+    } catch (e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, message: 'Request failed: ' + e.message }));
+    }
+  });
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+
+function escapeXml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function soapRequest(fusionUrl, soapPath, basicAuth, action, body) {
+  return new Promise(function (resolve, reject) {
+    var parsed = url.parse(fusionUrl);
+    var protocol = parsed.protocol === 'https:' ? https : http;
+    var bodyBuf = Buffer.from(body, 'utf-8');
+
+    var opts = {
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path: soapPath,
+      method: 'POST',
+      headers: {
+        'Authorization'  : basicAuth,
+        'Content-Type'   : 'text/xml; charset=utf-8',
+        'Content-Length' : bodyBuf.length,
+        'SOAPAction'     : action
+      },
+      rejectUnauthorized: false
+    };
+
+    var r = protocol.request(opts, function (resp) {
+      var chunks = [];
+      resp.on('data', function (c) { chunks.push(c); });
+      resp.on('end', function () {
+        resolve({ status: resp.statusCode, body: Buffer.concat(chunks).toString('utf-8') });
+      });
+    });
+    r.on('error', reject);
+    r.write(bodyBuf);
+    r.end();
+  });
+}
+
+function parseFolderItems(soapXml, parentPath) {
+  var items = [];
+
+  // Match each item element — handle both sawsoap and default namespace
+  var itemRegex = /<[^>]*?:?item\b[^>]*>([\s\S]*?)<\/[^>]*?:?item>/gi;
+  var match;
+
+  while ((match = itemRegex.exec(soapXml)) !== null) {
+    var block = match[1];
+
+    var nameMatch    = block.match(/<[^>]*?:?name[^>]*>([^<]+)<\/[^>]*?:?name>/i);
+    var typeMatch    = block.match(/<[^>]*?:?objectType[^>]*>([^<]+)<\/[^>]*?:?objectType>/i);
+    var pathMatch    = block.match(/<[^>]*?:?path[^>]*>([^<]+)<\/[^>]*?:?path>/i);
+
+    if (!nameMatch) continue;
+
+    var name     = nameMatch[1].trim();
+    var objType  = typeMatch  ? typeMatch[1].trim().toLowerCase()  : '';
+    var fullPath = pathMatch  ? pathMatch[1].trim() : (parentPath + '/' + name);
+
+    // Filter: keep folders and .xdm files, skip .xdo and everything else
+    if (objType === 'folder' || objType === 'briefingbook') {
+      items.push({ name: name, path: fullPath, type: 'folder' });
+    } else if (name.endsWith('.xdm') || objType === 'datamodel' || objType === 'xdm') {
+      items.push({ name: name, path: fullPath, type: 'xdm' });
+    }
+    // xdo files and others are intentionally skipped
+  }
+
+  // Fallback: if SOAP response uses a different structure, try regex on display names
+  if (items.length === 0) {
+    var displayRegex = /displayName="([^"]+)"|<[^>]*displayName[^>]*>([^<]+)</gi;
+    // Try path-based parsing as fallback
+    var pathItems = soapXml.match(/\/shared\/[^"<\s]+/g);
+    if (pathItems) {
+      var seen = new Set();
+      pathItems.forEach(function (p) {
+        if (seen.has(p)) return;
+        seen.add(p);
+        var parts = p.split('/');
+        var lastName = parts[parts.length - 1];
+        if (lastName.endsWith('.xdm')) {
+          items.push({ name: lastName, path: p, type: 'xdm' });
+        }
+      });
+    }
+  }
+
+  return items;
+}
+
+function extractSqlFromXdm(xdmXml) {
+  // SQL is inside <sql ...><![CDATA[...]]></sql>
+  var cdataMatch = xdmXml.match(/<sql[^>]*>\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*<\/sql>/i);
+  if (cdataMatch) return cdataMatch[1].trim();
+
+  // Sometimes SQL is not in CDATA
+  var sqlMatch = xdmXml.match(/<sql[^>]*>([\s\S]*?)<\/sql>/i);
+  if (sqlMatch) return sqlMatch[1].trim();
+
+  return '';
+}
+
+function extractDataSource(xdmXml) {
+  var dsMatch = xdmXml.match(/defaultDataSourceRef="([^"]+)"/i);
+  if (dsMatch) return dsMatch[1];
+  var dsMatch2 = xdmXml.match(/dataSourceRef="([^"]+)"/i);
+  if (dsMatch2) return dsMatch2[1];
+  return '';
+}
+
+
+  
   // ── PROXY (pass-through for everything else) ─────────────────
   var targetUrl = req.headers['x-target-url'];
 
