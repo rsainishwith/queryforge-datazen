@@ -304,9 +304,9 @@ var server = http.createServer(function(req, res) {
           };
           var delParsed = url.parse(fusionUrl + '/xmlpserver/services/v2/CatalogService');
           var delBuf;
-          delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv/blank'), 'utf8');
+          delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv/blank.xss'), 'utf8');
           await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
-          delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv'), 'utf8');
+          delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv.xdo'), 'utf8');
           await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
           delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm'), 'utf8');
           await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
@@ -391,7 +391,6 @@ var server = http.createServer(function(req, res) {
             '<defaultTemplate>blank</defaultTemplate>\n' +
             '<templates>\n' +
            '<template label="blank" type="xpt" outputFormat="csv" defaultOutput="true" locale="en-US" url="blank.xpt"/>\n' +
-            '</template>\n' +
             '</templates>\n' +
             '</report>';
 
