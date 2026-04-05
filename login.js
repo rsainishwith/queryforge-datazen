@@ -170,7 +170,7 @@ function handleLogin() {
     if (remember) {
       localStorage.setItem('qfdz_session', JSON.stringify(sessionData));
     } else {
-      sessionStorage.setItem('qfdz_session', JSON.stringify(sessionData));
+      localStorage.setItem('qfdz_session', JSON.stringify(sessionData));
     }
 
     showToast('success', 'Welcome back, ' + user.name.split(' ')[0] + '!', 'Redirecting to your workspace...');
