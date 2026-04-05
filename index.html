@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>QueryForge DataZen</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Segoe+UI:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="app.css"/>
+</head>
+<body>
+
+<!-- ── TITLE BAR ── -->
+<div class="titlebar">
+  <div class="titlebar-logo">QueryForge DataZen</div>
+  <div class="titlebar-center" id="title-conn">No connection selected</div>
+  <div class="titlebar-user" id="titlebar-user" style="display:none;">
+    <span id="titlebar-username"></span>
+    <button class="btn-logout" onclick="doLogout()">Logout</button>
+  </div>
+</div>
+
+<div class="body-wrap">
+
+  <!-- ── SIDEBAR ── -->
+  <div class="sidebar">
+    <div class="sico on" title="Query Editor" style="pointer-events:none;opacity:0.3">📄</div>
+    <div class="sico" title="Connections" onclick="openConnModal()">🔗</div>
+    <div class="sico" title="History" style="pointer-events:none;opacity:0.3">📋</div>
+    <div class="sico mt" title="Help" style="pointer-events:none;opacity:0.3">❓</div>
+    <div class="sico" title="Settings" style="pointer-events:none;opacity:0.3">⚙️</div>
+  </div>
+
+  <!-- ── MAIN ── -->
+  <div class="main">
+
+    <!-- Setup Banner -->
+    <div class="setup-banner" id="setup-banner">
+      ⚠️ <span><b>No connection yet.</b> Click <b>+ Add</b> to enter your Oracle URL and credentials.</span>
+      <button class="cadd" onclick="openConnModal()" style="margin-left:auto;flex-shrink:0;">+ Add Connection</button>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tabbar" id="tabbar"></div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <span class="flabel">Fetch Rows</span>
+      <select class="finput" id="fetchrows">
+        <option value="100">100</option>
+        <option value="1000">1000</option>
+        <option value="10000">10000</option>
+        <option value="ALL">All</option>
+      </select>
+      <div class="sep"></div>
+      <button class="tbtn run" title="Run Query (F5)" onclick="runQuery()">▶</button>
+      <button class="tbtn run" title="Run current statement" onclick="runQuery()" style="font-size:10px;">▶|</button>
+      <button class="tbtn stop" title="Stop" onclick="stopQuery()">⏹</button>
+      <div class="sep"></div>
+      <button class="tbtn" title="Format SQL" onclick="formatSQL()">⇌</button>
+      <button class="tbtn" title="Clear editor" onclick="clearEditor()">🗑</button>
+      <button class="tbtn" title="Undo" onclick="document.execCommand('undo')">↩</button>
+      <button class="tbtn" title="Redo" onclick="document.execCommand('redo')">↪</button>
+      <div class="sep"></div>
+      <button class="tbtn" title="Font size +" onclick="changeFontSize(1)">A⁺</button>
+      <button class="tbtn" title="Font size -" onclick="changeFontSize(-1)">A⁻</button>
+      <div class="sep"></div>
+      <button class="tbtn" title="Export to CSV" onclick="exportCSV()">📥</button>
+      <button class="tbtn" title="Find in SQL (Ctrl+F)" onclick="findInSQL()">🔍</button>
+      <button class="tbtn" title="Load table/column metadata for autocomplete" onclick="loadMetadata()" style="font-size:10px;width:auto;padding:0 6px;">⚡ Meta</button>
+      <div class="spin" id="spinner"></div>
+      <div class="conn-area">
+        <select class="csel" id="csel" onchange="selectConn()"><option value="">— Select a connection —</option></select>
+        <button class="cadd" onclick="openConnModal()">+ Add</button>
+      </div>
+    </div>
+
+    <!-- Pane Container -->
+    <div class="pane-container" id="pane-container">
+
+      <!-- Editor Section -->
+      <div class="editor-section" id="editor-section">
+        <div class="ebody" style="flex:1;overflow:hidden;position:relative;">
+          <div class="lnums" id="lnums">1</div>
+          <pre id="hl" aria-hidden="true"></pre>
+          <textarea id="sqled"
+            placeholder="-- Write your Oracle SQL here&#10;SELECT * FROM PER_ALL_PEOPLE_F WHERE ROWNUM &lt;= 100"
+            spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">
+          </textarea>
+        </div>
+      </div>
+
+      <!-- Resizer -->
+      <div class="resizer" id="resizer"></div>
+
+      <!-- Results Section -->
+      <div class="results-section" id="results-section">
+        <div class="res-bar">
+          <button class="cadd" onclick="exportCSV()" style="font-size:11px;padding:2px 8px;flex-shrink:0;">⬇ CSV</button>
+          <button class="cadd" id="gtc-toggle-btn" onclick="toggleGtcPanel()" style="font-size:11px;padding:2px 8px;flex-shrink:0;" title="Go to Column">→ Column</button>
+          <span id="res-info" style="flex:1;text-align:center;">No data found</span>
+          <div class="sir-wrap">
+            <input class="sir-input" id="sir-input" type="text" placeholder="🔍 Search in Result" oninput="sirSearch(this.value)" onkeydown="sirKeyNav(event)"/>
+            <span class="sir-count" id="sir-count"></span>
+          </div>
+        </div>
+        <div class="results-inner">
+          <div class="gtc-panel" id="gtc-panel" style="display:none;">
+            <div class="gtc-search-wrap">
+              <input class="gtc-search" id="gtc-search" type="text" placeholder="Search" oninput="gtcFilter(this.value)"/>
+            </div>
+            <div class="gtc-list" id="gtc-list"></div>
+          </div>
+          <div class="tbl-wrap" id="rarea"><div class="nodata">No data found</div></div>
+        </div>
+      </div>
+
+    </div><!-- end pane-container -->
+
+    <!-- Status Bar -->
+    <div class="statusbar">
+      <span style="display:flex;align-items:center;gap:6px;">
+        <div class="sdot" id="sdot"></div>
+        <span id="sconn">Not connected</span>
+      </span>
+      <span id="srows"></span>
+      <span id="stime"></span>
+      <span id="sstage" style="color:#ffd740;"></span>
+      <span id="meta-status" style="display:none;font-size:11px;"></span>
+      <span style="margin-left:auto;display:flex;align-items:center;gap:12px;">
+        <span id="proxy-badge" style="font-size:10px;padding:2px 8px;border-radius:10px;background:#333;color:#aaa;cursor:help;">⏳ Checking for Active Server…</span>
+        <span id="spos">Ln 1, Col 1</span>
+      </span>
+    </div>
+
+  </div><!-- end main -->
+</div><!-- end body-wrap -->
+
+<!-- ═══ BIND VARIABLES MODAL ═══ -->
+<div class="bv-overlay" id="bv-overlay">
+  <div class="bv-modal">
+    <div class="bv-head">
+      Bind Variables
+      <span id="bv-subtitle"></span>
+      <button class="mclose" onclick="bvCancel()" style="font-size:18px;background:none;border:none;color:#9ca3af;cursor:pointer;">✕</button>
+    </div>
+    <div class="bv-body" id="bv-body"></div>
+    <div class="bv-foot">
+      <button class="bv-btn cancel" onclick="bvCancel()">Cancel</button>
+      <button class="bv-btn submit" onclick="bvSubmit()">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ EXCEL-STYLE FILTER POPUP ═══ -->
+<div class="filter-popup" id="filter-popup">
+  <div class="fp-sort">
+    <div class="fp-sort-item" id="fp-sort-asc" onclick="fpSort('asc')">
+      <span class="fp-sort-icon">↑</span> Ascending
+    </div>
+    <div class="fp-sort-item" id="fp-sort-desc" onclick="fpSort('desc')">
+      <span class="fp-sort-icon">↓</span> Descending
+    </div>
+  </div>
+  <div class="fp-divider"></div>
+  <div class="fp-clear" onclick="fpClearFilter()">
+    <span class="fp-clear-icon">✕</span> Clear Filter
+  </div>
+  <div class="fp-divider"></div>
+  <div class="fp-search-wrap">
+    <input class="fp-search" type="text" id="fp-search" placeholder="Search…" oninput="fpSearchValues(this.value)"/>
+  </div>
+  <div class="fp-list" id="fp-list"></div>
+  <div class="fp-footer">
+    <button class="fp-btn ok" onclick="fpApply()">OK</button>
+    <button class="fp-btn cancel" onclick="fpClose()">Cancel</button>
+  </div>
+</div>
+
+<!-- ═══ CONNECTION MODAL ═══ -->
+<div class="overlay" id="conn-overlay">
+  <div class="modal">
+    <div class="mhead">
+      <span class="mhead-title">🔗 Oracle Connection Manager</span>
+      <button class="mclose" onclick="closeConnModal()">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="tabs-row">
+        <div class="mtab on" onclick="switchMTab('new')">New Connection</div>
+        <div class="mtab" onclick="switchMTab('saved')">Saved Connections</div>
+        <div class="mtab" onclick="switchMTab('howto')">How it Works</div>
+      </div>
+      <div class="mtab-panel on" id="panel-new">
+        <div class="mf">
+          <label>Connection Name</label>
+          <input type="text" id="mc-name" autocomplete="off">
+        </div>
+        <div class="mf">
+          <label>Oracle Fusion URL</label>
+          <input type="url" id="mc-url" autocomplete="off">
+        </div>
+        <div class="mf">
+          <label>Username</label>
+          <input type="text" id="mc-user" autocomplete="off">
+        </div>
+        <div class="mf">
+          <label>Password</label>
+          <input type="password" id="mc-pass" autocomplete="off">
+        </div>
+        <div class="mstatus" id="mc-status"></div>
+      </div>
+      <div class="mtab-panel" id="panel-saved">
+        <div id="saved-list">
+          <div style="color:#888;font-size:12px;padding:8px 0;">No connections saved yet.</div>
+        </div>
+      </div>
+      <div class="mtab-panel" id="panel-howto">
+        <div style="font-size:12px;line-height:1.7;color:#333;">
+          <p><b>How CloudSQL Web Edition works:</b></p>
+          <p style="margin-top:6px;">1. Calls BI Publisher report at <code>/Custom/CloudSQL/CloudSQLReport_csv.xdo</code></p>
+          <p style="margin-top:6px;">2. Base64-encodes your SQL and sends as <code>sql_query</code> parameter.</p>
+          <p style="margin-top:6px;">3. Results returned as CSV and displayed in the table.</p>
+          <p style="margin-top:10px;padding:8px;background:#fff3e0;border-radius:4px;color:#e65100;font-size:11px;">⚠️ CORS note: Start the companion Node.js proxy or enable CORS in Oracle Analytics admin.</p>
+        </div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="mbtn" onclick="testConn()">✓ Test</button>
+      <button class="mbtn" onclick="closeConnModal()">Cancel</button>
+      <button class="mbtn primary" onclick="saveConn()">Save Connection</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ HELP MODAL ═══ -->
+<div class="overlay" id="help-overlay">
+  <div class="modal" style="width:520px;">
+    <div class="mhead">
+      <span class="mhead-title">❓ Help & Proxy Setup</span>
+      <button class="mclose" onclick="document.getElementById('help-overlay').classList.remove('show')">✕</button>
+    </div>
+    <div class="mbody" style="font-size:12px;line-height:1.7;">
+      <p><b>Why do I get a CORS/network error?</b></p>
+      <p style="margin-top:4px;">Oracle Fusion Cloud blocks direct browser requests. You need a small local proxy.</p>
+      <pre style="background:#1e1e1e;color:#d4d4d4;padding:10px;border-radius:4px;font-size:11px;margin-top:6px;overflow:auto;">// Save as proxy.js then run: node proxy.js
+const http=require('http'),https=require('https'),url=require('url');
+http.createServer((req,res)=>{
+  res.setHeader('Access-Control-Allow-Origin','*');
+  res.setHeader('Access-Control-Allow-Methods','*');
+  res.setHeader('Access-Control-Allow-Headers','*');
+  if(req.method==='OPTIONS'){res.writeHead(200);res.end();return;}
+  const target=req.headers['x-target-url'];
+  if(!target){res.writeHead(400);res.end('Missing x-target-url');return;}
+  const p=url.parse(target);
+  const opts={hostname:p.hostname,port:443,path:p.path,method:req.method,
+    headers:{...req.headers,host:p.hostname}};
+  delete opts.headers['x-target-url'];
+  const px=https.request(opts,r=>{res.writeHead(r.statusCode,r.headers);r.pipe(res);});
+  px.on('error',e=>{res.writeHead(500);res.end(e.message);});
+  req.pipe(px);
+}).listen(3737,()=>console.log('Proxy on h'));</pre>
+    </div>
+    <div class="mfoot">
+      <button class="mbtn primary" onclick="document.getElementById('help-overlay').classList.remove('show')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
