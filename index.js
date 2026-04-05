@@ -366,7 +366,7 @@ var server = http.createServer(function(req, res) {
           var reportXml = '<?xml version="1.0" encoding="utf-8"?>\n' +
   '<report xmlns="http://xmlns.oracle.com/oxp/xmlp" version="2.0">\n' +
   '<description><![CDATA[QueryForgeDataZenReport_csv]]></description>\n' +
-  '<dataModelReference>/shared/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm</dataModelReference>\n' +
+  '<dataModelReference>/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm</dataModelReference>\n' +
   '<defaultOutputFormat>csv</defaultOutputFormat>\n' +
   '<defaultTemplate>blank</defaultTemplate>\n' +
   '<templates>\n' +
@@ -379,7 +379,7 @@ var server = http.createServer(function(req, res) {
           var rptZipped = await zip2.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
           var rptB64    = rptZipped.toString('base64');
           var rptResult = await uploadBIPObject(fusionUrl, username, password, 'xdoz',
-            '/shared/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv', rptB64);
+            '/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv', rptB64);
           log('REQ', 'UploadReport status: ' + rptResult.status);
           log('REQ', 'UploadReport body: ' + rptResult.body);
 
@@ -401,7 +401,7 @@ var server = http.createServer(function(req, res) {
           var tplZipped = await zip3.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
           var tplB64    = tplZipped.toString('base64');
           var tplResult = await uploadBIPObject(fusionUrl, username, password, 'xssz',
-            '/shared/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv/blank', tplB64);
+            '/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv/blank', tplB64);
           log('REQ', 'UploadTemplate status: ' + tplResult.status);
           log('REQ', 'UploadTemplate body: ' + tplResult.body);
 
