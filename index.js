@@ -292,6 +292,7 @@ var server = http.createServer(function(req, res) {
           log('REQ', 'CreateFolder body: ' + folderResult.body);
 
        // ── Step 2b: Delete existing objects ──
+// ── Step 2b: Delete existing objects ──
 log('REQ', 'Cleaning up existing objects...');
 
 var deleteSoap = function(path) {
@@ -299,7 +300,7 @@ var deleteSoap = function(path) {
     '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
     '<soapenv:Header/><soapenv:Body>' +
     '<v2:deleteObject>' +
-    '<v2:objectAbsolutePathURL>' + path + '</v2:objectAbsolutePathURL>' +
+    '<v2:reportObjectAbsolutePath>' + path + '</v2:reportObjectAbsolutePath>' +
     '<v2:userID>' + username + '</v2:userID>' +
     '<v2:password>' + password + '</v2:password>' +
     '</v2:deleteObject>' +
@@ -320,7 +321,7 @@ log('REQ', 'Delete report: ' + delResult.status + ' ' + delResult.body.substring
 delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm'), 'utf8');
 delResult = await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
 log('REQ', 'Delete DM: ' + delResult.status + ' ' + delResult.body.substring(0,200));
-
+          
           // ── Step 3: Upload Data Model ──────────────────────
           log('REQ', 'Uploading data model...');
           var dataModelXml = '<?xml version="1.0" encoding="utf-8"?>\n' +
