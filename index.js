@@ -366,7 +366,7 @@ var server = http.createServer(function(req, res) {
           var reportXml = '<?xml version="1.0" encoding="utf-8"?>\n' +
             '<report xmlns="http://xmlns.oracle.com/oxp/xmlp" version="2.0">\n' +
             '<description><![CDATA[QueryForgeDataZenReport_csv]]></description>\n' +
-            '<dataModelReference>/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm</dataModelReference>\n' +
+            '<dataModelReference>/shared/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm</dataModelReference>\n' +
             '<defaultOutputFormat>csv</defaultOutputFormat>\n' +
             '<defaultTemplate>blank</defaultTemplate>\n' +
             '<templates>\n' +
