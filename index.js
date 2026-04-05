@@ -291,54 +291,35 @@ var server = http.createServer(function(req, res) {
           log('REQ', 'CreateFolder status: ' + folderResult.status);
           log('REQ', 'CreateFolder body: ' + folderResult.body);
 
-         // ── Step 2b: Delete existing objects using BIP SecurityService token ──
+       // ── Step 2b: Delete existing objects ──
 log('REQ', 'Cleaning up existing objects...');
 
-// Get BIP session token first
-var bipToken = '';
-try {
-  var bipLoginSoap = '<?xml version="1.0" encoding="UTF-8"?>' +
-    '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
-    '<soapenv:Header/><soapenv:Body>' +
-    '<v2:login>' +
-    '<v2:userID>' + username + '</v2:userID>' +
-    '<v2:password>' + password + '</v2:password>' +
-    '</v2:login>' +
-    '</soapenv:Body></soapenv:Envelope>';
-  var bipLoginBuf = Buffer.from(bipLoginSoap, 'utf8');
-  var bipLoginParsed = url.parse(fusionUrl + '/xmlpserver/services/v2/SecurityService');
-  var bipLoginResult = await doRequest(bipLoginParsed, 'POST', {
-    'Content-Type': 'text/xml; charset=UTF-8',
-    'Content-Length': bipLoginBuf.length,
-    'SOAPAction': 'login',
-    'Accept-Encoding': 'identity'
-  }, bipLoginBuf);
-  var tokenMatch = bipLoginResult.body.match(/<loginReturn[^>]*>([^<]+)<\/loginReturn>/i);
-  if (tokenMatch) { bipToken = tokenMatch[1]; log('REQ', 'BIP token obtained'); }
-} catch(e) { log('REQ', 'BIP login failed: ' + e.message); }
-
-// Delete using bipSessionToken
 var deleteSoap = function(path) {
   return '<?xml version="1.0" encoding="UTF-8"?>' +
     '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
     '<soapenv:Header/><soapenv:Body>' +
-    '<v2:deleteObjectInSession>' +
+    '<v2:deleteObject>' +
     '<v2:reportObjectAbsolutePathURL>' + path + '</v2:reportObjectAbsolutePathURL>' +
-    '<v2:bipSessionToken>' + bipToken + '</v2:bipSessionToken>' +
-    '</v2:deleteObjectInSession>' +
+    '<v2:userID>' + username + '</v2:userID>' +
+    '<v2:password>' + password + '</v2:password>' +
+    '</v2:deleteObject>' +
     '</soapenv:Body></soapenv:Envelope>';
 };
+
 var delParsed = url.parse(fusionUrl + '/xmlpserver/services/v2/CatalogService');
-var delBuf;
-try {
-  delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv/blank.xss'), 'utf8');
-  await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObjectInSession','Accept-Encoding':'identity'}, delBuf);
-  delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv.xdo'), 'utf8');
-  await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObjectInSession','Accept-Encoding':'identity'}, delBuf);
-  delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm'), 'utf8');
-  await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObjectInSession','Accept-Encoding':'identity'}, delBuf);
-  log('REQ', 'Cleanup done');
-} catch(e) { log('REQ', 'Cleanup error (may not exist yet): ' + e.message); }
+var delBuf, delResult;
+
+delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv/blank.xss'), 'utf8');
+delResult = await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
+log('REQ', 'Delete template: ' + delResult.status + ' ' + delResult.body.substring(0,200));
+
+delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv.xdo'), 'utf8');
+delResult = await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
+log('REQ', 'Delete report: ' + delResult.status + ' ' + delResult.body.substring(0,200));
+
+delBuf = Buffer.from(deleteSoap('/Custom/QueryForgeDataZen/QueryForgeDataZenDataModel_csv.xdm'), 'utf8');
+delResult = await doRequest(delParsed, 'POST', {'Content-Type':'text/xml; charset=UTF-8','Content-Length':delBuf.length,'SOAPAction':'deleteObject','Accept-Encoding':'identity'}, delBuf);
+log('REQ', 'Delete DM: ' + delResult.status + ' ' + delResult.body.substring(0,200));
 
           // ── Step 3: Upload Data Model ──────────────────────
           log('REQ', 'Uploading data model...');
