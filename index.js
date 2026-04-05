@@ -370,7 +370,7 @@ var server = http.createServer(function(req, res) {
             '<defaultOutputFormat>csv</defaultOutputFormat>\n' +
             '<defaultTemplate>blank</defaultTemplate>\n' +
             '<templates>\n' +
-            '<template>\n' +
+            '<template label="blank">\n' +
             '<n>blank</n>\n' +
             '<file>blank.xpt</file>\n' +
             '<outputFormat>csv</outputFormat>\n' +
