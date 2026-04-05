@@ -304,7 +304,7 @@ setInterval(updateClock, 1000);
 updateClock();
 
 // ── Server Wake-up & Status ───────────────────────────────────
-const SERVER = 'https://queryforge-backend-jjxx.onrender.com';
+const SERVER = 'https://queryforge-backend-mroa.onrender.com';
 const dot    = document.getElementById('server-dot');
 const slabel = document.getElementById('server-status-label');
 
