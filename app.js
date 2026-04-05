@@ -196,8 +196,19 @@ async function saveConn(){
     saveConns();
   }
   renderConnSel();
-  document.getElementById('csel').value=connections.length-1;
-  selectConn();closeConnModal();checkBanner();
+document.getElementById('csel').value=connections.length-1;
+selectConn();closeConnModal();checkBanner();
+
+// Auto-deploy catalog to Fusion
+setMStatus('info','Deploying catalog to Fusion...');
+try{
+  var dr=await fetch(PROXY_URL+'/upload-catalog',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fusionUrl:url,username:user,password:pass})});
+  var dd=await dr.json();
+  if(dd.ok){setMStatus('ok','Connection saved & catalog deployed!');}
+  else{setMStatus('warn','Connection saved. Catalog deploy failed: '+dd.message);}
+}catch(e){
+  setMStatus('warn','Connection saved. Catalog deploy failed: '+e.message);
+}
 }
 function checkBanner(){document.getElementById('setup-banner').classList.toggle('show',connections.length===0);}
 
