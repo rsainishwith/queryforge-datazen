@@ -578,19 +578,13 @@ var server = http.createServer(function(req, res) {
       }
       var basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
   try {
-        var soapBody =
+     var soapBody =
   '<?xml version="1.0" encoding="utf-8"?>' +
   '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:pub="http://xmlns.oracle.com/oxp/service/PublicReportService">' +
-  '<soapenv:Header>' +
-  '<wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">' +
-  '<wsse:UsernameToken>' +
-  '<wsse:Username>' + escapeXml(username) + '</wsse:Username>' +
-  '<wsse:Password>' + escapeXml(password) + '</wsse:Password>' +
-  '</wsse:UsernameToken>' +
-  '</wsse:Security>' +
-  '</soapenv:Header>' +
   '<soapenv:Body>' +
   '<pub:getFolderContents>' +
+  '<pub:userID>' + escapeXml(username) + '</pub:userID>' +
+  '<pub:password>' + escapeXml(password) + '</pub:password>' +
   '<pub:folderAbsolutePath>' + escapeXml(folderPath) + '</pub:folderAbsolutePath>' +
   '</pub:getFolderContents>' +
   '</soapenv:Body></soapenv:Envelope>';
