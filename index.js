@@ -67,16 +67,25 @@ function soapRequest(fusionUrl, soapPath, basicAuth, action, body) {
         'Authorization'  : basicAuth,
         'Content-Type'   : 'text/xml; charset=utf-8',
         'Content-Length' : bodyBuf.length,
-        'SOAPAction'     : action
+        'SOAPAction'     : action,
+        'Accept-Encoding': 'identity'
       },
       rejectUnauthorized: false
     };
     var r = protocol.request(opts, function (resp) {
       var chunks = [];
-      resp.on('data', function (c) { chunks.push(c); });
-      resp.on('end', function () {
+      var encoding = resp.headers['content-encoding'];
+      var stream = resp;
+      if (encoding === 'gzip') {
+        stream = resp.pipe(zlib.createGunzip());
+      } else if (encoding === 'deflate') {
+        stream = resp.pipe(zlib.createInflate());
+      }
+      stream.on('data', function (c) { chunks.push(c); });
+      stream.on('end', function () {
         resolve({ status: resp.statusCode, body: Buffer.concat(chunks).toString('utf-8') });
       });
+      stream.on('error', reject);
     });
     r.on('error', reject);
     r.write(bodyBuf);
@@ -581,6 +590,13 @@ var loginSoap =
 var loginResult = await soapRequest(fusionUrl, '/analytics/saw.dll?SoapImpl=nQSessionService', basicAuth, 'logon', loginSoap);
 log('REQ', 'Logon status: ' + loginResult.status);
 log('REQ', 'Logon body: ' + loginResult.body.slice(0, 500));
+// Handle redirect
+if (loginResult.status === 302) {
+  log('REQ', 'Got redirect — retrying with /analytics-ws/');
+  loginResult = await soapRequest(fusionUrl, '/analytics-ws/saw.dll?SoapImpl=nQSessionService', basicAuth, 'logon', loginSoap);
+  log('REQ', 'Retry logon status: ' + loginResult.status);
+  log('REQ', 'Retry logon body: ' + loginResult.body.slice(0, 500));
+}
 var sessionMatch = loginResult.body.match(/<sessionID[^>]*>([^<]+)<\/sessionID>/i);
 if (!sessionMatch) {
   res.writeHead(401, { 'Content-Type': 'application/json' });
