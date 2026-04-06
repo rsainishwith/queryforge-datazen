@@ -571,7 +571,7 @@ var server = http.createServer(function(req, res) {
       var fusionUrl  = (data.fusionUrl || '').trim().replace(/\/+$/, '');
       var username   = (data.username  || '').trim();
       var password   = (data.password  || '').trim();
-      var folderPath = (data.path || '/shared').trim();
+      var folderPath = (data.path || '/').trim();
       if (!fusionUrl || !username || !password) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ ok: false, message: 'Missing fusionUrl, username, or password' }));
