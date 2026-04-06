@@ -578,7 +578,7 @@ var loginSoap =
   '<saw:password>' + escapeXml(password) + '</saw:password>' +
   '</saw:logon></soapenv:Body></soapenv:Envelope>';
 
-var loginResult = await soapRequest(fusionUrl, '/analytics-ws/saw.dll?SoapImpl=nQSessionService', basicAuth, 'logon', loginSoap);
+var loginResult = await soapRequest(fusionUrl, '/analytics/saw.dll?SoapImpl=nQSessionService', basicAuth, 'logon', loginSoap);
 var sessionMatch = loginResult.body.match(/<sessionID[^>]*>([^<]+)<\/sessionID>/i);
 if (!sessionMatch) {
   res.writeHead(401, { 'Content-Type': 'application/json' });
