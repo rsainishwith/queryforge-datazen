@@ -615,9 +615,10 @@ var soapBody =
   '</saw:getFolderContents>' +
   '</soapenv:Body></soapenv:Envelope>';
       try {
-        //var result = await soapRequest(fusionUrl, '/analytics/saw.dll?SoapImpl=nQSessionService', basicAuth, 'getFolderContents', soapBody);
-        var result = await soapRequest(fusionUrl, '/analytics-ws/saw.dll?SoapImpl=webCatalogService', basicAuth, 'getFolderContents', soapBody);
-        if (result.status !== 200) {
+       var result = await soapRequest(fusionUrl, '/analytics-ws/saw.dll?SoapImpl=webCatalogService', basicAuth, 'getFolderContents', soapBody);
+log('REQ', 'getFolderContents status: ' + result.status);
+log('REQ', 'getFolderContents body: ' + result.body.slice(0, 500));
+if (result.status !== 200) {
           res.writeHead(result.status, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ ok: false, message: 'Fusion SOAP error HTTP ' + result.status, detail: result.body }));
         }
