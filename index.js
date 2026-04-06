@@ -577,45 +577,25 @@ var server = http.createServer(function(req, res) {
         return res.end(JSON.stringify({ ok: false, message: 'Missing fusionUrl, username, or password' }));
       }
       var basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
-
-// Step 1: Get session token first
-var loginSoap =
-  '<?xml version="1.0" encoding="UTF-8"?>' +
-  '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:saw="com.siebel.analytics.web/soap/v2">' +
-  '<soapenv:Body><saw:logon>' +
-  '<saw:name>' + escapeXml(username) + '</saw:name>' +
-  '<saw:password>' + escapeXml(password) + '</saw:password>' +
-  '</saw:logon></soapenv:Body></soapenv:Envelope>';
-
-var loginResult = await soapRequest(fusionUrl, '/analytics/saw.dll?SoapImpl=nQSessionService', basicAuth, 'logon', loginSoap);
-log('REQ', 'Logon status: ' + loginResult.status);
-log('REQ', 'Logon body: ' + loginResult.body.slice(0, 500));
-// Handle redirect
-if (loginResult.status === 302) {
-  log('REQ', 'Got redirect — retrying with /analytics-ws/');
-  loginResult = await soapRequest(fusionUrl, '/analytics-ws/saw.dll?SoapImpl=nQSessionService', basicAuth, 'logon', loginSoap);
-  log('REQ', 'Retry logon status: ' + loginResult.status);
-  log('REQ', 'Retry logon body: ' + loginResult.body.slice(0, 500));
-}
-var sessionMatch = loginResult.body.match(/<(?:[^:>]+:)?sessionID[^>]*>([^<]+)<\/(?:[^:>]+:)?sessionID>/i);
-if (!sessionMatch) {
-  res.writeHead(401, { 'Content-Type': 'application/json' });
-  return res.end(JSON.stringify({ ok: false, message: 'Could not obtain session token — check credentials', debug: loginResult.body.slice(0, 300) }));
-}
-var sessionID = sessionMatch[1];
-
-// Step 2: Now fetch folder contents with sessionID
-var soapBody =
+  try {
+        var soapBody =
   '<?xml version="1.0" encoding="utf-8"?>' +
-  '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:saw="com.siebel.analytics.web/soap/v6">' +
+  '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:pub="http://xmlns.oracle.com/oxp/service/PublicReportService">' +
+  '<soapenv:Header>' +
+  '<wsse:Security xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">' +
+  '<wsse:UsernameToken>' +
+  '<wsse:Username>' + escapeXml(username) + '</wsse:Username>' +
+  '<wsse:Password>' + escapeXml(password) + '</wsse:Password>' +
+  '</wsse:UsernameToken>' +
+  '</wsse:Security>' +
+  '</soapenv:Header>' +
   '<soapenv:Body>' +
-  '<saw:getSubItemsSummary>' +
-  '<saw:path>' + escapeXml(folderPath) + '</saw:path>' +
-  '<saw:sessionID>' + sessionID + '</saw:sessionID>' +
-  '</saw:getSubItemsSummary>' +
+  '<pub:getFolderContents>' +
+  '<pub:folderAbsolutePath>' + escapeXml(folderPath) + '</pub:folderAbsolutePath>' +
+  '</pub:getFolderContents>' +
   '</soapenv:Body></soapenv:Envelope>';
-      try {
-        var result = await soapRequest(fusionUrl, '/analytics-ws/saw.dll?SoapImpl=webCatalogServiceV6', basicAuth, 'getSubItemsSummary', soapBody);
+
+var result = await soapRequest(fusionUrl, '/xmlpserver/services/PublicReportService', basicAuth, 'getFolderContents', soapBody);
 log('REQ', 'getFolderContents status: ' + result.status);
 log('REQ', 'getFolderContents body: ' + result.body.slice(0, 500));
 if (result.status !== 200) {
