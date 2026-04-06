@@ -609,13 +609,14 @@ var soapBody =
   '<?xml version="1.0" encoding="utf-8"?>' +
   '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:saw="com.siebel.analytics.web/soap/v2">' +
   '<soapenv:Body>' +
-  '<saw:getFolderContents>' +
+  '<saw:enumerateCatalogObjects>' +
   '<saw:path>' + escapeXml(folderPath) + '</saw:path>' +
   '<saw:sessionID>' + sessionID + '</saw:sessionID>' +
-  '</saw:getFolderContents>' +
+  '<saw:type>all</saw:type>' +
+  '</saw:enumerateCatalogObjects>' +
   '</soapenv:Body></soapenv:Envelope>';
       try {
-       var result = await soapRequest(fusionUrl, '/analytics-ws/saw.dll?SoapImpl=webCatalogService', basicAuth, 'getFolderContents', soapBody);
+        var result = await soapRequest(fusionUrl, '/analytics-ws/saw.dll?SoapImpl=webCatalogService', basicAuth, 'enumerateCatalogObjects', soapBody);
 log('REQ', 'getFolderContents status: ' + result.status);
 log('REQ', 'getFolderContents body: ' + result.body.slice(0, 500));
 if (result.status !== 200) {
