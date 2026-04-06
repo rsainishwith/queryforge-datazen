@@ -572,7 +572,7 @@ var server = http.createServer(function(req, res) {
   '<pub:getReportDefinition>' +
   '<pub:userID>' + escapeXml(username) + '</pub:userID>' +
   '<pub:password>' + escapeXml(password) + '</pub:password>' +
-  '<pub:reportAbsolutePath>' + escapeXml(xdmPath) + '</pub:reportAbsolutePath>' +
+  '<pub:folderAbsolutePath>' + escapeXml(folderPath) + '</pub:folderAbsolutePath>' +
   '</pub:getReportDefinition>' +
   '</soapenv:Body></soapenv:Envelope>';
 
