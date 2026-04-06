@@ -579,10 +579,12 @@ var loginSoap =
   '</saw:logon></soapenv:Body></soapenv:Envelope>';
 
 var loginResult = await soapRequest(fusionUrl, '/analytics/saw.dll?SoapImpl=nQSessionService', basicAuth, 'logon', loginSoap);
+log('REQ', 'Logon status: ' + loginResult.status);
+log('REQ', 'Logon body: ' + loginResult.body.slice(0, 500));
 var sessionMatch = loginResult.body.match(/<sessionID[^>]*>([^<]+)<\/sessionID>/i);
 if (!sessionMatch) {
   res.writeHead(401, { 'Content-Type': 'application/json' });
-  return res.end(JSON.stringify({ ok: false, message: 'Could not obtain session token — check credentials' }));
+  return res.end(JSON.stringify({ ok: false, message: 'Could not obtain session token — check credentials', debug: loginResult.body.slice(0, 300) }));
 }
 var sessionID = sessionMatch[1];
 
