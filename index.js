@@ -597,7 +597,7 @@ if (loginResult.status === 302) {
   log('REQ', 'Retry logon status: ' + loginResult.status);
   log('REQ', 'Retry logon body: ' + loginResult.body.slice(0, 500));
 }
-var sessionMatch = loginResult.body.match(/<sessionID[^>]*>([^<]+)<\/sessionID>/i);
+var sessionMatch = loginResult.body.match(/<(?:[^:>]+:)?sessionID[^>]*>([^<]+)<\/(?:[^:>]+:)?sessionID>/i);
 if (!sessionMatch) {
   res.writeHead(401, { 'Content-Type': 'application/json' });
   return res.end(JSON.stringify({ ok: false, message: 'Could not obtain session token — check credentials', debug: loginResult.body.slice(0, 300) }));
