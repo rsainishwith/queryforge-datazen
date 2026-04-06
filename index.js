@@ -95,36 +95,23 @@ function soapRequest(fusionUrl, soapPath, basicAuth, action, body) {
 
 function parseFolderItems(soapXml, parentPath) {
   var items = [];
-  var itemRegex = /<[^>]*?:?item\b[^>]*>([\s\S]*?)<\/[^>]*?:?item>/gi;
+  var itemRegex = /<item>([\s\S]*?)<\/item>/gi;
   var match;
   while ((match = itemRegex.exec(soapXml)) !== null) {
-    var block     = match[1];
-    var nameMatch = block.match(/<[^>]*?:?name[^>]*>([^<]+)<\/[^>]*?:?name>/i);
-    var typeMatch = block.match(/<[^>]*?:?objectType[^>]*>([^<]+)<\/[^>]*?:?objectType>/i);
-    var pathMatch = block.match(/<[^>]*?:?path[^>]*>([^<]+)<\/[^>]*?:?path>/i);
+    var block = match[1];
+    var nameMatch = block.match(/<fileName[^>]*>([^<]+)<\/fileName>/i);
+    var pathMatch = block.match(/<absolutePath[^>]*>([^<]+)<\/absolutePath>/i);
+    var typeMatch = block.match(/<type[^>]*>([^<]+)<\/type>/i);
     if (!nameMatch) continue;
     var name     = nameMatch[1].trim();
-    var objType  = typeMatch ? typeMatch[1].trim().toLowerCase() : '';
     var fullPath = pathMatch ? pathMatch[1].trim() : (parentPath + '/' + name);
+    var objType  = typeMatch ? typeMatch[1].trim().toLowerCase() : '';
     if (objType === 'folder' || objType === 'briefingbook') {
       items.push({ name: name, path: fullPath, type: 'folder' });
     } else if (name.endsWith('.xdm') || objType === 'datamodel' || objType === 'xdm') {
       items.push({ name: name, path: fullPath, type: 'xdm' });
-    }
-  }
-  if (items.length === 0) {
-    var pathItems = soapXml.match(/\/shared\/[^"<\s]+/g);
-    if (pathItems) {
-      var seen = new Set();
-      pathItems.forEach(function (p) {
-        if (seen.has(p)) return;
-        seen.add(p);
-        var parts    = p.split('/');
-        var lastName = parts[parts.length - 1];
-        if (lastName.endsWith('.xdm')) {
-          items.push({ name: lastName, path: p, type: 'xdm' });
-        }
-      });
+    } else if (objType === 'folder' || !objType) {
+      items.push({ name: name, path: fullPath, type: 'folder' });
     }
   }
   return items;
@@ -571,7 +558,7 @@ var server = http.createServer(function(req, res) {
       var fusionUrl  = (data.fusionUrl || '').trim().replace(/\/+$/, '');
       var username   = (data.username  || '').trim();
       var password   = (data.password  || '').trim();
-      var folderPath = (data.path || '/shared').trim();
+      var folderPath = (data.path || '/').trim();
       if (!fusionUrl || !username || !password) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ ok: false, message: 'Missing fusionUrl, username, or password' }));
