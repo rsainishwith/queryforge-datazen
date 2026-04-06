@@ -458,7 +458,7 @@ async function connectCatalog() {
   wrap.innerHTML = '';
 
   try {
-    await loadFolder('/shared', wrap, 0, true);
+    await loadFolder('/', wrap, 0, true);
     setPanelStatus('connected', 'Connected');
     setStatus('ok', 'Catalog loaded — click a .xdm to view SQL');
   } catch(e) {
