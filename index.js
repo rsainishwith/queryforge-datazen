@@ -599,8 +599,9 @@ if (result.status !== 200) {
 
   // ── CATALOG: FETCH XDM AND EXTRACT SQL ───────────────────────
   if (req.url === '/catalog/xdm' && req.method === 'POST') {
-    return getBody(req, async function (data) {
-      var fusionUrl = (data.fusionUrl || '').trim().replace(/\/+$/, '');
+  return getBody(req, async function (data) {
+    log('REQ', 'XDM route hit — path: ' + (data.path || 'none'));
+    var fusionUrl = (data.fusionUrl || '').trim().replace(/\/+$/, '');
       var username  = (data.username  || '').trim();
       var password  = (data.password  || '').trim();
       var xdmPath   = (data.path || '').trim();
@@ -609,16 +610,16 @@ if (result.status !== 200) {
         return res.end(JSON.stringify({ ok: false, message: 'Missing required fields' }));
       }
       var basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
-      var soapBody =
-        '<?xml version="1.0" encoding="utf-8"?>' +
-        '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" ' +
-        'xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
-        '<soapenv:Body>' +
-        '<v2:downloadObject>' +
-        '<v2:reportObjectPath>' + escapeXml(xdmPath) + '</v2:reportObjectPath>' +
-        '</v2:downloadObject>' +
-        '</soapenv:Body>' +
-        '</soapenv:Envelope>';
+       var soapBody =
+  '<?xml version="1.0" encoding="utf-8"?>' +
+  '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:pub="http://xmlns.oracle.com/oxp/service/PublicReportService">' +
+  '<soapenv:Body>' +
+  '<pub:getReportDefinition>' +
+  '<pub:userID>' + escapeXml(username) + '</pub:userID>' +
+  '<pub:password>' + escapeXml(password) + '</pub:password>' +
+  '<pub:reportAbsolutePath>' + escapeXml(xdmPath) + '</pub:reportAbsolutePath>' +
+  '</pub:getReportDefinition>' +
+  '</soapenv:Body></soapenv:Envelope>';
       try {
         var result = await soapRequest(fusionUrl, '/xmlpserver/services/v2/BIPReportService', basicAuth, 'downloadObject', soapBody);
         if (result.status !== 200) {
