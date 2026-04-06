@@ -593,7 +593,7 @@ if (result.status !== 200) {
     });
   }
 
-  // ── CATALOG: FETCH XDM AND EXTRACT SQL ───────────────────────
+ // ── CATALOG: FETCH XDM AND EXTRACT SQL ───────────────────────
   if (req.url === '/catalog/xdm' && req.method === 'POST') {
     return getBody(req, async function (data) {
       var fusionUrl = (data.fusionUrl || '').trim().replace(/\/+$/, '');
@@ -631,7 +631,27 @@ if (result.status !== 200) {
         var xdmXml = '';
         if (b64Match) {
           var b64 = b64Match[1].replace(/\s/g, '');
-          xdmXml = Buffer.from(b64, 'base64').toString('utf-8');
+          var zipBuffer = Buffer.from(b64, 'base64');
+
+          // Check if it's a ZIP (starts with PK magic bytes)
+          if (zipBuffer[0] === 0x50 && zipBuffer[1] === 0x4B) {
+            var zip = await JSZip.loadAsync(zipBuffer);
+            var xdmFile = null;
+            zip.forEach(function(relativePath, file) {
+              if (relativePath.endsWith('.xdm') || relativePath.toLowerCase().includes('datamodel')) {
+                xdmFile = file;
+              }
+            });
+            if (xdmFile) {
+              xdmXml = await xdmFile.async('string');
+            } else {
+              // fallback: grab first file in zip
+              var files = Object.keys(zip.files);
+              xdmXml = await zip.files[files[0]].async('string');
+            }
+          } else {
+            xdmXml = zipBuffer.toString('utf-8');
+          }
         } else {
           var inlineMatch = result.body.match(/<dataModel[\s\S]*<\/dataModel>/);
           if (inlineMatch) {
