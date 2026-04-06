@@ -641,6 +641,7 @@ if (result.status !== 200) {
             return res.end(JSON.stringify({ ok: false, message: 'Could not extract XDM content', raw: result.body.slice(0, 500) }));
           }
         }
+        log('REQ', 'XDM RAW: ' + xdmXml.slice(0, 1000));
         var sql        = extractSqlFromXdm(xdmXml);
         var dataSource = extractDataSource(xdmXml);
         res.writeHead(200, { 'Content-Type': 'application/json' });
