@@ -480,11 +480,14 @@ async function loadFolder(path, container, depth, autoExpand) {
 
   const data = await resp.json();
 
-  if (!data.ok) {
-    const errRow = makeRow('⚠ ' + (data.message || 'Error'), 'error', depth);
-    container.appendChild(errRow);
-    return;
-  }
+if (!data.ok) {
+  const errRow = document.createElement('div');
+  errRow.className = 'tree-row loading-row';
+  errRow.style.setProperty('--depth', depth);
+  errRow.innerHTML = '<span class="tree-label" style="color:var(--red)">⚠ ' + (data.message || 'Error') + '</span>';
+  container.appendChild(errRow);
+  return;
+}
 
   if (!data.items || data.items.length === 0) {
     const emptyRow = document.createElement('div');
