@@ -565,16 +565,20 @@ var server = http.createServer(function(req, res) {
       }
       var basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
   try {
-     var soapBody =
+ var soapBody =
   '<?xml version="1.0" encoding="utf-8"?>' +
   '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:pub="http://xmlns.oracle.com/oxp/service/PublicReportService">' +
   '<soapenv:Body>' +
-  '<pub:getFolderContents>' +
+  '<pub:getReportDefinition>' +
   '<pub:userID>' + escapeXml(username) + '</pub:userID>' +
   '<pub:password>' + escapeXml(password) + '</pub:password>' +
-  '<pub:folderAbsolutePath>' + escapeXml(folderPath) + '</pub:folderAbsolutePath>' +
-  '</pub:getFolderContents>' +
+  '<pub:reportAbsolutePath>' + escapeXml(xdmPath) + '</pub:reportAbsolutePath>' +
+  '</pub:getReportDefinition>' +
   '</soapenv:Body></soapenv:Envelope>';
+
+var result = await soapRequest(fusionUrl, '/xmlpserver/services/PublicReportService', basicAuth, 'getReportDefinition', soapBody);
+log('REQ', 'XDM fetch status: ' + result.status);
+log('REQ', 'XDM fetch body: ' + result.body.slice(0, 500));
 
 var result = await soapRequest(fusionUrl, '/xmlpserver/services/PublicReportService', basicAuth, 'getFolderContents', soapBody);
 log('REQ', 'getFolderContents status: ' + result.status);
