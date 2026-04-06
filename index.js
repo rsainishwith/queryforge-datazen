@@ -611,12 +611,12 @@ if (result.status !== 200) {
         'xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
         '<soapenv:Body>' +
         '<v2:downloadObject>' +
-        '<v2:reportObjectPath>' + escapeXml(xdmPath) + '</v2:reportObjectPath>' +
+        '<v2:reportAbsolutePath>' + escapeXml(xdmPath) + '</v2:reportAbsolutePath>' +
         '</v2:downloadObject>' +
         '</soapenv:Body>' +
         '</soapenv:Envelope>';
       try {
-        var result = await soapRequest(fusionUrl, '/xmlpserver/services/v2/BIPReportService', basicAuth, 'downloadObject', soapBody);
+        var result = await soapRequest(fusionUrl, '/xmlpserver/services/v2/CatalogService', basicAuth, 'downloadObject', soapBody);
         if (result.status !== 200) {
           res.writeHead(result.status, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ ok: false, message: 'Failed to fetch XDM: HTTP ' + result.status, detail: result.body }));
