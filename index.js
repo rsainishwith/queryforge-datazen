@@ -606,15 +606,18 @@ if (result.status !== 200) {
       }
       var basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
       var soapBody =
-        '<?xml version="1.0" encoding="utf-8"?>' +
-        '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" ' +
-        'xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
-        '<soapenv:Body>' +
-        '<v2:downloadObject>' +
-        '<v2:reportAbsolutePath>' + escapeXml(xdmPath) + '</v2:reportAbsolutePath>' +
-        '</v2:downloadObject>' +
-        '</soapenv:Body>' +
-        '</soapenv:Envelope>';
+  '<?xml version="1.0" encoding="utf-8"?>' +
+  '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" ' +
+  'xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
+  '<soapenv:Header/>' +
+  '<soapenv:Body>' +
+  '<v2:downloadObject>' +
+  '<v2:reportAbsolutePath>' + escapeXml(xdmPath) + '</v2:reportAbsolutePath>' +
+  '<v2:userID>' + escapeXml(username) + '</v2:userID>' +
+  '<v2:password>' + escapeXml(password) + '</v2:password>' +
+  '</v2:downloadObject>' +
+  '</soapenv:Body>' +
+  '</soapenv:Envelope>';
       try {
         var result = await soapRequest(fusionUrl, '/xmlpserver/services/v2/CatalogService', basicAuth, 'downloadObject', soapBody);
         if (result.status !== 200) {
