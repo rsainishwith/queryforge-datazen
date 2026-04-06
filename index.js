@@ -95,23 +95,36 @@ function soapRequest(fusionUrl, soapPath, basicAuth, action, body) {
 
 function parseFolderItems(soapXml, parentPath) {
   var items = [];
-  var itemRegex = /<item>([\s\S]*?)<\/item>/gi;
+  var itemRegex = /<[^>]*?:?item\b[^>]*>([\s\S]*?)<\/[^>]*?:?item>/gi;
   var match;
   while ((match = itemRegex.exec(soapXml)) !== null) {
-    var block = match[1];
-    var nameMatch = block.match(/<fileName[^>]*>([^<]+)<\/fileName>/i);
-    var pathMatch = block.match(/<absolutePath[^>]*>([^<]+)<\/absolutePath>/i);
-    var typeMatch = block.match(/<type[^>]*>([^<]+)<\/type>/i);
+    var block     = match[1];
+    var nameMatch = block.match(/<[^>]*?:?name[^>]*>([^<]+)<\/[^>]*?:?name>/i);
+    var typeMatch = block.match(/<[^>]*?:?objectType[^>]*>([^<]+)<\/[^>]*?:?objectType>/i);
+    var pathMatch = block.match(/<[^>]*?:?path[^>]*>([^<]+)<\/[^>]*?:?path>/i);
     if (!nameMatch) continue;
     var name     = nameMatch[1].trim();
-    var fullPath = pathMatch ? pathMatch[1].trim() : (parentPath + '/' + name);
     var objType  = typeMatch ? typeMatch[1].trim().toLowerCase() : '';
+    var fullPath = pathMatch ? pathMatch[1].trim() : (parentPath + '/' + name);
     if (objType === 'folder' || objType === 'briefingbook') {
       items.push({ name: name, path: fullPath, type: 'folder' });
     } else if (name.endsWith('.xdm') || objType === 'datamodel' || objType === 'xdm') {
       items.push({ name: name, path: fullPath, type: 'xdm' });
-    } else if (objType === 'folder' || !objType) {
-      items.push({ name: name, path: fullPath, type: 'folder' });
+    }
+  }
+  if (items.length === 0) {
+    var pathItems = soapXml.match(/\/shared\/[^"<\s]+/g);
+    if (pathItems) {
+      var seen = new Set();
+      pathItems.forEach(function (p) {
+        if (seen.has(p)) return;
+        seen.add(p);
+        var parts    = p.split('/');
+        var lastName = parts[parts.length - 1];
+        if (lastName.endsWith('.xdm')) {
+          items.push({ name: lastName, path: p, type: 'xdm' });
+        }
+      });
     }
   }
   return items;
@@ -558,27 +571,23 @@ var server = http.createServer(function(req, res) {
       var fusionUrl  = (data.fusionUrl || '').trim().replace(/\/+$/, '');
       var username   = (data.username  || '').trim();
       var password   = (data.password  || '').trim();
-      var folderPath = (data.path || '/').trim();
+      var folderPath = (data.path || '/shared').trim();
       if (!fusionUrl || !username || !password) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ ok: false, message: 'Missing fusionUrl, username, or password' }));
       }
       var basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
   try {
- var soapBody =
+     var soapBody =
   '<?xml version="1.0" encoding="utf-8"?>' +
   '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:pub="http://xmlns.oracle.com/oxp/service/PublicReportService">' +
   '<soapenv:Body>' +
-  '<pub:getReportDefinition>' +
+  '<pub:getFolderContents>' +
   '<pub:userID>' + escapeXml(username) + '</pub:userID>' +
   '<pub:password>' + escapeXml(password) + '</pub:password>' +
   '<pub:folderAbsolutePath>' + escapeXml(folderPath) + '</pub:folderAbsolutePath>' +
-  '</pub:getReportDefinition>' +
+  '</pub:getFolderContents>' +
   '</soapenv:Body></soapenv:Envelope>';
-
-var result = await soapRequest(fusionUrl, '/xmlpserver/services/PublicReportService', basicAuth, 'getReportDefinition', soapBody);
-log('REQ', 'XDM fetch status: ' + result.status);
-log('REQ', 'XDM fetch body: ' + result.body.slice(0, 500));
 
 var result = await soapRequest(fusionUrl, '/xmlpserver/services/PublicReportService', basicAuth, 'getFolderContents', soapBody);
 log('REQ', 'getFolderContents status: ' + result.status);
@@ -599,9 +608,8 @@ if (result.status !== 200) {
 
   // ── CATALOG: FETCH XDM AND EXTRACT SQL ───────────────────────
   if (req.url === '/catalog/xdm' && req.method === 'POST') {
-  return getBody(req, async function (data) {
-    log('REQ', 'XDM route hit — path: ' + (data.path || 'none'));
-    var fusionUrl = (data.fusionUrl || '').trim().replace(/\/+$/, '');
+    return getBody(req, async function (data) {
+      var fusionUrl = (data.fusionUrl || '').trim().replace(/\/+$/, '');
       var username  = (data.username  || '').trim();
       var password  = (data.password  || '').trim();
       var xdmPath   = (data.path || '').trim();
@@ -610,16 +618,16 @@ if (result.status !== 200) {
         return res.end(JSON.stringify({ ok: false, message: 'Missing required fields' }));
       }
       var basicAuth = 'Basic ' + Buffer.from(username + ':' + password).toString('base64');
-       var soapBody =
-  '<?xml version="1.0" encoding="utf-8"?>' +
-  '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:pub="http://xmlns.oracle.com/oxp/service/PublicReportService">' +
-  '<soapenv:Body>' +
-  '<pub:getReportDefinition>' +
-  '<pub:userID>' + escapeXml(username) + '</pub:userID>' +
-  '<pub:password>' + escapeXml(password) + '</pub:password>' +
-  '<pub:reportAbsolutePath>' + escapeXml(xdmPath) + '</pub:reportAbsolutePath>' +
-  '</pub:getReportDefinition>' +
-  '</soapenv:Body></soapenv:Envelope>';
+      var soapBody =
+        '<?xml version="1.0" encoding="utf-8"?>' +
+        '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" ' +
+        'xmlns:v2="http://xmlns.oracle.com/oxp/service/v2">' +
+        '<soapenv:Body>' +
+        '<v2:downloadObject>' +
+        '<v2:reportObjectPath>' + escapeXml(xdmPath) + '</v2:reportObjectPath>' +
+        '</v2:downloadObject>' +
+        '</soapenv:Body>' +
+        '</soapenv:Envelope>';
       try {
         var result = await soapRequest(fusionUrl, '/xmlpserver/services/v2/BIPReportService', basicAuth, 'downloadObject', soapBody);
         if (result.status !== 200) {
