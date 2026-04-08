@@ -40,6 +40,7 @@ window.onload=function(){
   initCatalogResizer();
   doHL();doLN();
   setTimeout(function(){checkProxy(function(){});},500);
+  initSidebarCollapsed();
   document.addEventListener('mousedown',function(e){
     var popup=document.getElementById('filter-popup');
     if(popup.classList.contains('show')&&!popup.contains(e.target)&&!e.target.closest('.th-filter-btn')){
@@ -1107,7 +1108,7 @@ function setMetaStatus(state, msg){
 }
 
 /* ── Toggle catalog visibility ───────────────────────────────── */
-var catalogVisible=true;
+var catalogVisible=false;
 function toggleCatalog(){
   catalogVisible=!catalogVisible;
   var cat=document.getElementById('sidebar-catalog');
@@ -1122,6 +1123,14 @@ function toggleCatalog(){
     resizer.style.display='none';
     sidebar.style.width='36px';
   }
+}
+function initSidebarCollapsed(){
+  var cat=document.getElementById('sidebar-catalog');
+  var resizer=document.getElementById('sidebar-resizer');
+  var sidebar=document.getElementById('sidebar');
+  cat.style.display='none';
+  resizer.style.display='none';
+  sidebar.style.width='36px';
 }
 
 /* ══════════ CATALOG BROWSER ═══════════════════════════════════ */
