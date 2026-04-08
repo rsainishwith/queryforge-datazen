@@ -327,8 +327,30 @@ function _executeSQL(sql){
     })
     .then(function(xml){
       var elapsed=((Date.now()-t0)/1000).toFixed(2);
-      var fm=xml.match(/<(?:faultstring|message)[^>]*>([\s\S]*?)<\/(?:faultstring|message)>/);
-      if(fm&&xml.indexOf('<pub:reportBytes')===-1)throw new Error('Oracle error:\n'+fm[1].trim());
+     var fm=xml.match(/<(?:faultstring|message)[^>]*>([\s\S]*?)<\/(?:faultstring|message)>/);
+      if(fm&&xml.indexOf('<pub:reportBytes')===-1){
+        var rawMsg=fm[1].trim();
+        // Extract ORA- error code if present
+        var oraMatch=rawMsg.match(/(ORA-\d+[^\n<.]*)/i);
+        // Extract meaningful BI/XDO message
+        var xdoMatch=rawMsg.match(/DataException:\s*([^<\n]+)/i);
+        var serverMatch=rawMsg.match(/ServerException:\s*([^<\n]+)/i);
+        var generateMatch=rawMsg.match(/generateReport[^:]*:\s*([^<\n]+)/i);
+        var friendlyMsg='';
+        if(oraMatch){
+          friendlyMsg='Oracle Error: '+oraMatch[1].trim();
+        } else if(xdoMatch){
+          friendlyMsg='Query Error: '+xdoMatch[1].trim();
+        } else if(serverMatch){
+          friendlyMsg='Server Error: '+serverMatch[1].trim();
+        } else if(generateMatch){
+          friendlyMsg='Report Error: '+generateMatch[1].trim();
+        } else {
+          // Fallback: strip all XML tags and show plain text
+          friendlyMsg=rawMsg.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,300);
+        }
+        throw new Error(friendlyMsg);
+      }
       var p=parseCSVResponse(xml);
       if(p.error){showErr(p.error);return;}
       var rows=p.rows.slice(0,limit),cols=p.cols;
@@ -338,7 +360,17 @@ function _executeSQL(sql){
     })
     .catch(function(e){
       var msg=e.message||String(e);
-      if(/fetch|Failed to fetch|NetworkError|Load failed/i.test(msg))msg='CORS / Network blocked.\n\nFIX:\n  1. node cloudsql_proxy.js\n  2. Keep that window open\n  3. Click Run Query again\n\nRaw: '+e.message;
+      if(/fetch|Failed to fetch|NetworkError|Load failed/i.test(msg)){
+        msg='Unable to reach the server.\nPlease check your connection or contact your administrator.';
+      } else if(/401|Authentication/i.test(msg)){
+        msg='Authentication failed.\nPlease check your username and password.';
+      } else if(/403/i.test(msg)){
+        msg='Access denied.\nYou do not have permission to run this report.';
+      } else if(/404/i.test(msg)){
+        msg='Report not found on the server.\nPlease verify the connection setup.';
+      } else if(/500/i.test(msg)){
+        msg=msg; // already cleaned above — pass through friendly ORA- message
+      }
       showErr(msg);setStatus('err',conn?conn.name:'Error');
     })
     .finally(function(){running=false;setLoading(false);setStage('');});
