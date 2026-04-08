@@ -28,7 +28,7 @@ window.onload=function(){
   renderTabs();
   activateTab(0);
   var ta=document.getElementById('sqled');
-  ta.addEventListener('input',function(){doHL();doLN();});
+  ta.addEventListener('input',function(){doHL();doLN();autoCorrectSQL();});
   ta.addEventListener('scroll',syncScroll);
   ta.addEventListener('keydown',handleKeys);
   ta.addEventListener('keyup',updatePos);
@@ -558,6 +558,74 @@ function updatePos(){var ta=document.getElementById('sqled'),v=ta.value.slice(0,
 function syncScroll(){var ta=document.getElementById('sqled');document.getElementById('hl').scrollTop=ta.scrollTop;document.getElementById('hl').scrollLeft=ta.scrollLeft;document.getElementById('lnums').scrollTop=ta.scrollTop;}
 function doLN(){var ta=document.getElementById('sqled'),n=(ta.value||'').split('\n').length,a=[];for(var i=1;i<=n;i++)a.push(i);document.getElementById('lnums').textContent=a.join('\n');}
 function doHL(){document.getElementById('hl').innerHTML=sqlHL(document.getElementById('sqled').value||'');}
+function autoCorrectSQL(){
+  var ta=document.getElementById('sqled');
+  var pos=ta.selectionStart;
+  var val=ta.value;
+
+  // Only trigger after a space or newline
+  var lastChar=val[pos-1];
+  if(lastChar!==' '&&lastChar!=='\n'&&lastChar!=='\t')return;
+
+  // Common typo corrections (lowercase typo → correct)
+  var typos={
+    'selct':'SELECT','slect':'SELECT','seelct':'SELECT','selet':'SELECT',
+    'freom':'FROM','fomr':'FROM','fro':'FROM',
+    'wher':'WHERE','whre':'WHERE','wehre':'WHERE',
+    'grop':'GROUP','grpup':'GROUP',
+    'ordr':'ORDER','orderd':'ORDER',
+    'havng':'HAVING','haivng':'HAVING',
+    'joi':'JOIN','jion':'JOIN',
+    'distint':'DISTINCT','distnct':'DISTINCT',
+    'isert':'INSERT','inser':'INSERT',
+    'updat':'UPDATE','updaet':'UPDATE',
+    'delet':'DELETE','dleet':'DELETE',
+    'creat':'CREATE','craete':'CREATE',
+    'betwen':'BETWEEN','beteen':'BETWEEN',
+    'liek':'LIKE','lke':'LIKE',
+    'coun':'COUNT','conut':'COUNT',
+    'nul':'NULL','nll':'NULL',
+    'uinon':'UNION','unoin':'UNION',
+    'alais':'ALIAS','alas':'AS',
+    'limt':'LIMIT','liimt':'LIMIT'
+  };
+
+  // Get the word just before cursor
+  var before=val.slice(0,pos-1); // exclude the space just typed
+  var wordMatch=before.match(/(\S+)$/);
+  if(!wordMatch)return;
+  var word=wordMatch[1];
+  var wordStart=pos-1-word.length;
+
+  // Check typo map first
+  var upper=word.toUpperCase();
+  var corrected=typos[word.toLowerCase()]||null;
+
+  // If not a typo, check if it's a known keyword to uppercase
+  if(!corrected){
+    var allKW=[
+      'SELECT','FROM','WHERE','AND','OR','NOT','IN','EXISTS','BETWEEN','LIKE','IS','NULL',
+      'JOIN','LEFT','RIGHT','INNER','OUTER','FULL','CROSS','ON','GROUP','ORDER','HAVING',
+      'UNION','ALL','DISTINCT','AS','LIMIT','OFFSET','INSERT','INTO','VALUES','UPDATE',
+      'SET','DELETE','CREATE','TABLE','INDEX','VIEW','DROP','ALTER','ADD','COLUMN',
+      'PRIMARY','KEY','FOREIGN','REFERENCES','CONSTRAINT','DEFAULT','UNIQUE','CHECK',
+      'WITH','CASE','WHEN','THEN','ELSE','END','BEGIN','COMMIT','ROLLBACK','TRUNCATE',
+      'ASC','DESC','BY','CONNECT','PRIOR','LEVEL','PIVOT','MERGE','USING','MATCHED',
+      'DECLARE','PROCEDURE','FUNCTION','PACKAGE','RETURN','EXCEPTION','DUAL','SYSDATE',
+      'SYSTIMESTAMP','ROWNUM','FETCH','NEXT','ROWS','ONLY','COUNT','SUM','AVG','MAX',
+      'MIN','COALESCE','NVL','TRIM','UPPER','LOWER','SUBSTR','LENGTH','TO_DATE',
+      'TO_CHAR','TO_NUMBER','TRUNC','ROUND','REPLACE','RANK','DENSE_RANK','ROW_NUMBER',
+      'LEAD','LAG','OVER','PARTITION','EXTRACT','CAST','NULLIF','GREATEST','LEAST'
+    ];
+    if(allKW.indexOf(upper)>-1) corrected=upper;
+  }
+
+  if(corrected && corrected!==word){
+    ta.value=val.slice(0,wordStart)+corrected+val.slice(wordStart+word.length);
+    ta.selectionStart=ta.selectionEnd=pos;
+    doHL();doLN();
+  }
+}
 function sqlHL(code){
   var s=code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   s=s.replace(/(--[^\n]*)/g,'<span class="cm">$1</span>');
@@ -827,7 +895,10 @@ function escJ(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").repl
     'LPAD(','RPAD(','RANK(','DENSE_RANK(','ROW_NUMBER(','LEAD(','LAG(','OVER(',
     'PARTITION BY','LISTAGG(','EXTRACT(','MONTHS_BETWEEN(','ADD_MONTHS(','LAST_DAY(',
     'NEXT_DAY(','CAST(','NULLIF(','GREATEST(','LEAST(','REGEXP_LIKE(','REGEXP_SUBSTR(',
-    'REGEXP_REPLACE(','SYS_GUID(','WM_CONCAT('
+    'REGEXP_REPLACE(','SYS_GUID(','WM_CONCAT(',
+    'XMLAGG(','XMLELEMENT(','XMLFOREST(','JSON_VALUE(','JSON_QUERY(',
+    'STANDARD_HASH(','ORA_HASH(','RATIO_TO_REPORT(','PERCENT_RANK(',
+    'CUME_DIST(','NTILE(','FIRST_VALUE(','LAST_VALUE(','NTH_VALUE('
   ];
   function init(){
     dropdown = document.createElement('div');
@@ -857,7 +928,7 @@ function escJ(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").repl
     return { lastKw: lastKw, tables: tables };
   }
   function getSuggestions(word, val, cursorPos){
-    if(word.length < 1) return [];
+    if(word.length < 2) return [];
     var wu = word.toUpperCase();
     var ctx = getContext(val, cursorPos);
     var results = [];
