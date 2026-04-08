@@ -140,7 +140,7 @@ function selectConn(){
   document.getElementById('title-conn').textContent='Connected to ' + activeConn.name;
 }
 function switchMTab(name){
-  document.querySelectorAll('.mtab').forEach(function(t,i){var names=['new','saved','howto'];t.classList.toggle('on',names[i]===name);document.getElementById('panel-'+names[i]).classList.toggle('on',names[i]===name);});
+  document.querySelectorAll('.mtab').forEach(function(t,i){var names=['new','saved'];t.classList.toggle('on',names[i]===name);document.getElementById('panel-'+names[i]).classList.toggle('on',names[i]===name);});
   if(name==='saved')renderSavedConns();
 }
 function renderSavedConns(){
