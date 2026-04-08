@@ -1106,6 +1106,24 @@ function setMetaStatus(state, msg){
   el.style.display = 'inline';
 }
 
+/* ── Toggle catalog visibility ───────────────────────────────── */
+var catalogVisible=true;
+function toggleCatalog(){
+  catalogVisible=!catalogVisible;
+  var cat=document.getElementById('sidebar-catalog');
+  var resizer=document.getElementById('sidebar-resizer');
+  var sidebar=document.getElementById('sidebar');
+  if(catalogVisible){
+    cat.style.display='flex';
+    resizer.style.display='block';
+    sidebar.style.width='200px';
+  }else{
+    cat.style.display='none';
+    resizer.style.display='none';
+    sidebar.style.width='36px';
+  }
+}
+
 /* ══════════ CATALOG BROWSER ═══════════════════════════════════ */
 function setCatalogStatus(type, msg){
   var el=document.getElementById('catalog-status');
@@ -1298,20 +1316,21 @@ async function catOpenXdm(item, rowEl){
   }
 }
 
-/* ── Catalog panel resizer ───────────────────────────────────── */
+/* ── Sidebar resizer ─────────────────────────────────────────── */
 function initCatalogResizer(){
-  var resizer=document.getElementById('catalog-resizer');
-  var panel=document.getElementById('catalog-panel');
+  var resizer=document.getElementById('sidebar-resizer');
+  var sidebar=document.getElementById('sidebar');
   var dragging=false, startX, startW;
+  if(!resizer||!sidebar)return;
   resizer.addEventListener('mousedown',function(e){
-    dragging=true;startX=e.clientX;startW=panel.offsetWidth;
+    dragging=true;startX=e.clientX;startW=sidebar.offsetWidth;
     document.body.style.userSelect='none';document.body.style.cursor='col-resize';
     e.preventDefault();
   });
   document.addEventListener('mousemove',function(e){
     if(!dragging)return;
     var nw=startW+(e.clientX-startX);
-    panel.style.width=Math.max(120,Math.min(400,nw))+'px';
+    sidebar.style.width=Math.max(120,Math.min(380,nw))+'px';
   });
   document.addEventListener('mouseup',function(){
     if(!dragging)return;
