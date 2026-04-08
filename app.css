@@ -72,7 +72,7 @@ body{
 /* ── SIDEBAR ────────────────────────────────────────────────── */
 .sidebar{
   width:200px;
-  min-width:120px;
+  min-width:36px;
   max-width:380px;
    background:#e8e8ec;
   display:flex;
