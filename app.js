@@ -263,7 +263,13 @@ function parseCSVResponse(xml){
   var m=xml.match(/<([a-zA-Z0-9_:]+)reportBytes[^>]*>([\s\S]*?)<\/\1reportBytes>/);
   if(!m)return{rows:[],cols:[],error:'No reportBytes found.\n'+xml};
   var b64=(m[2]||'').trim(),csv='';
-  try{csv=atob(b64);if(csv.charCodeAt(0)===0xFEFF||csv.startsWith('ï»¿'))csv=csv.replace(/^\uFEFF|^\u00EF?\u00BB\u00BF/,'');}
+  try{
+    var binary=atob(b64);
+    var bytes=new Uint8Array(binary.length);
+    for(var i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+    csv=new TextDecoder('utf-8').decode(bytes);
+    if(csv.charCodeAt(0)===0xFEFF) csv=csv.slice(1);
+  }
   catch(e){return{rows:[],cols:[],error:'Base64 decode failed: '+e.message};}
   return parseCSV(csv);
 }
