@@ -93,7 +93,7 @@ body{
   gap:8px;
   cursor:pointer;
   font-size:15px;
-  color:#666;
+  color:#000000;
   transition:all 0.2s;
   flex-shrink:0;
 }
