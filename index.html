@@ -192,7 +192,6 @@
       <div class="tabs-row">
         <div class="mtab on" onclick="switchMTab('new')">New Connection</div>
         <div class="mtab" onclick="switchMTab('saved')">Saved Connections</div>
-        <div class="mtab" onclick="switchMTab('howto')">How it Works</div>
       </div>
       <div class="mtab-panel on" id="panel-new">
         <div class="mf">
@@ -216,15 +215,6 @@
       <div class="mtab-panel" id="panel-saved">
         <div id="saved-list">
           <div style="color:#888;font-size:12px;padding:8px 0;">No connections saved yet.</div>
-        </div>
-      </div>
-      <div class="mtab-panel" id="panel-howto">
-        <div style="font-size:12px;line-height:1.7;color:#333;">
-          <p><b>How CloudSQL Web Edition works:</b></p>
-          <p style="margin-top:6px;">1. Calls BI Publisher report at <code>/Custom/CloudSQL/CloudSQLReport_csv.xdo</code></p>
-          <p style="margin-top:6px;">2. Base64-encodes your SQL and sends as <code>sql_query</code> parameter.</p>
-          <p style="margin-top:6px;">3. Results returned as CSV and displayed in the table.</p>
-          <p style="margin-top:10px;padding:8px;background:#fff3e0;border-radius:4px;color:#e65100;font-size:11px;">⚠️ CORS note: Start the companion Node.js proxy or enable CORS in Oracle Analytics admin.</p>
         </div>
       </div>
     </div>
