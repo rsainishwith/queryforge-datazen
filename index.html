@@ -27,14 +27,26 @@
 <div class="body-wrap">
 
   <!-- ── SIDEBAR ── -->
-  <div class="sidebar">
-    <div class="sico on" title="Query Editor" style="pointer-events:none;opacity:0.3">📄</div>
+  <div class="sidebar" id="sidebar">
     <div class="sico" title="Connections" onclick="openConnModal()">🔗</div>
-    <div class="sico" title="History" style="pointer-events:none;opacity:0.3">📋</div>
-    <div class="sico mt" title="Help" style="pointer-events:none;opacity:0.3">❓</div>
-    <div class="sico" title="Settings" style="pointer-events:none;opacity:0.3">⚙️</div>
+    <div class="sico" title="Catalog" onclick="toggleCatalog()">📂</div>
+    <!-- Catalog Tree -->
+    <div class="sidebar-catalog" id="sidebar-catalog">
+      <div class="catalog-panel-header">
+        <span class="catalog-panel-title">CATALOG</span>
+        <span class="catalog-status" id="catalog-status">No connection</span>
+        <button class="catalog-refresh-btn" onclick="refreshCatalog()" title="Refresh">↺</button>
+      </div>
+      <div class="catalog-tree-wrap" id="catalog-tree-wrap">
+        <div class="catalog-empty-msg" id="catalog-empty-msg">Select a connection to browse catalog</div>
+      </div>
+    </div>
   </div>
 
+   <!-- ── SIDEBAR RESIZER ── -->
+  <div class="sidebar-resizer" id="sidebar-resizer"></div>
+
+  
   <!-- ── MAIN ── -->
   <div class="main">
 
@@ -81,21 +93,6 @@
 
     <!-- Pane Container -->
     <div class="pane-container" id="pane-container">
-
-      <!-- ── CATALOG PANEL ── -->
-      <div class="catalog-panel" id="catalog-panel">
-        <div class="catalog-panel-header">
-          <span class="catalog-panel-title">📂 Catalog</span>
-          <span class="catalog-status" id="catalog-status">No connection</span>
-          <button class="catalog-refresh-btn" onclick="refreshCatalog()" title="Refresh">↺</button>
-        </div>
-        <div class="catalog-tree-wrap" id="catalog-tree-wrap">
-          <div class="catalog-empty-msg" id="catalog-empty-msg">Select a connection to browse catalog</div>
-        </div>
-      </div>
-
-      <!-- ── CATALOG RESIZER ── -->
-      <div class="catalog-resizer" id="catalog-resizer"></div>
 
       <!-- Editor Section -->
       <div class="editor-section" id="editor-section">
