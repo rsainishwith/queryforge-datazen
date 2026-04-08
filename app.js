@@ -10,6 +10,9 @@ var fontSize=13, running=false;
 var sortCol=null, sortAsc=true;
 var colFilters={};
 
+/* ── Catalog State ───────────────────────────────────────────── */
+var catalogLoaded=false, activeCatNode=null;
+
 /* ── Filter popup working state ─────────────────────────────── */
 var fpCol=null, fpAllValues=[], fpPending=new Set();
 
@@ -34,6 +37,7 @@ window.onload=function(){
   ta.addEventListener('keyup',updatePos);
   ta.addEventListener('click',updatePos);
   initResizer();
+  initCatalogResizer();
   doHL();doLN();
   setTimeout(function(){checkProxy(function(){});},500);
   document.addEventListener('mousedown',function(e){
@@ -62,6 +66,8 @@ function activateTab(i){
   if(tabs[activeTab])tabs[activeTab].sql=document.getElementById('sqled').value;
   activeTab=i;
   document.getElementById('sqled').value=tabs[i].sql||'';
+  document.getElementById('sqled').readOnly=tabs[i].readonly||false;
+  document.getElementById('sqled').style.opacity=tabs[i].readonly?'0.8':'1';
   doHL();doLN();
   colFilters={};sortCol=null;
   if(tabs[i].results){
@@ -80,7 +86,7 @@ function renderTabs(){
   var bar=document.getElementById('tabbar');
   bar.innerHTML=tabs.map(function(t,i){
     return '<div class="tab'+(i===activeTab?' active':'')+'" onclick="activateTab('+i+')">'
-      +'📄 '+esc(t.name)
+     +(t.readonly?'🔒':'📄')+' '+esc(t.name)
       +' <span class="tab-x" onclick="removeTab('+i+',event)">✕</span></div>';
   }).join('')+'<div class="tab-add" onclick="addTab()" title="New tab">+</div>';
 }
@@ -138,6 +144,7 @@ function selectConn(){
   activeConn=connections[parseInt(v)];
   setStatus('ok',activeConn.name);
   document.getElementById('title-conn').textContent='Connected to ' + activeConn.name;
+  loadCatalogTree();
 }
 function switchMTab(name){
   document.querySelectorAll('.mtab').forEach(function(t,i){var names=['new','saved'];t.classList.toggle('on',names[i]===name);document.getElementById('panel-'+names[i]).classList.toggle('on',names[i]===name);});
@@ -1097,4 +1104,217 @@ function setMetaStatus(state, msg){
   el.textContent = msg;
   el.style.color   = state==='ok' ? '#4ade80' : state==='failed' ? '#f87171' : '#fbbf24';
   el.style.display = 'inline';
+}
+
+/* ══════════ CATALOG BROWSER ═══════════════════════════════════ */
+function setCatalogStatus(type, msg){
+  var el=document.getElementById('catalog-status');
+  if(!el)return;
+  el.className='catalog-status '+(type||'');
+  el.textContent=msg||'';
+}
+
+function refreshCatalog(){ loadCatalogTree(); }
+
+function loadCatalogTree(){
+  var wrap=document.getElementById('catalog-tree-wrap');
+  if(!activeConn){
+    wrap.innerHTML='<div class="catalog-empty-msg">Select a connection to browse catalog</div>';
+    setCatalogStatus('','No connection');
+    return;
+  }
+  wrap.innerHTML='<div class="catalog-empty-msg">Loading catalog…</div>';
+  setCatalogStatus('loading','Loading…');
+  catLoadFolder('/',wrap,0);
+}
+
+async function catLoadFolder(path, container, depth){
+  try{
+    var resp=await fetch(PROXY_URL+'/catalog/folders',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({fusionUrl:activeConn.url,username:activeConn.user,password:activeConn.pass,path:path})
+    });
+    var data=await resp.json();
+
+    if(depth===0) container.innerHTML='';
+
+    if(!data.ok){
+      container.innerHTML='<div class="catalog-empty-msg" style="color:#f87171;">⚠ '+(data.message||'Failed to load')+'</div>';
+      setCatalogStatus('error','Error');
+      return;
+    }
+    if(!data.items||data.items.length===0){
+      var empty=document.createElement('div');
+      empty.className='cat-row loading-row';
+      empty.style.setProperty('--depth',depth);
+      empty.innerHTML='<span class="cat-label" style="color:#475569;font-style:italic;">Empty folder</span>';
+      container.appendChild(empty);
+      if(depth===0) setCatalogStatus('connected','Connected');
+      return;
+    }
+
+    // Sort folders first then xdm
+    data.items.sort(function(a,b){
+      if(a.type===b.type)return a.name.localeCompare(b.name);
+      return a.type==='folder'?-1:1;
+    });
+
+    data.items.forEach(function(item){
+      var node=catBuildNode(item,depth);
+      container.appendChild(node);
+    });
+
+    if(depth===0) setCatalogStatus('connected','Connected');
+
+  }catch(e){
+    container.innerHTML='<div class="catalog-empty-msg" style="color:#f87171;">⚠ '+e.message+'</div>';
+    setCatalogStatus('error','Failed');
+  }
+}
+
+function catBuildNode(item, depth){
+  var node=document.createElement('div');
+  node.className='cat-node';
+
+  var row=document.createElement('div');
+  row.className='cat-row';
+  row.style.setProperty('--depth',depth);
+
+  if(item.type==='folder'){
+    var toggle=document.createElement('span');
+    toggle.className='cat-toggle';
+    toggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>';
+
+    var icon=document.createElement('span');
+    icon.className='cat-icon icon-folder';
+    icon.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" opacity="0.85"/></svg>';
+
+    var label=document.createElement('span');
+    label.className='cat-label';
+    label.textContent=item.name;
+
+    row.appendChild(toggle);
+    row.appendChild(icon);
+    row.appendChild(label);
+
+    var children=document.createElement('div');
+    children.className='cat-children';
+
+    var loaded=false;
+    row.addEventListener('click',async function(){
+      var isOpen=children.classList.contains('open');
+      if(isOpen){
+        children.classList.remove('open');
+        toggle.classList.remove('open');
+      }else{
+        children.classList.add('open');
+        toggle.classList.add('open');
+        if(!loaded){
+          loaded=true;
+          var spinRow=document.createElement('div');
+          spinRow.className='cat-row loading-row';
+          spinRow.style.setProperty('--depth',depth+1);
+          spinRow.innerHTML='<span class="cat-label">Loading…</span>';
+          children.appendChild(spinRow);
+          await catLoadFolder(item.path,children,depth+1);
+          if(spinRow.parentNode)spinRow.parentNode.removeChild(spinRow);
+        }
+      }
+    });
+
+    node.appendChild(row);
+    node.appendChild(children);
+
+  }else if(item.type==='xdm'){
+    var toggle=document.createElement('span');
+    toggle.className='cat-toggle leaf';
+    toggle.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 18 15 12 9 6"/></svg>';
+
+    var icon=document.createElement('span');
+    icon.className='cat-icon icon-xdm';
+    icon.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>';
+
+    var label=document.createElement('span');
+    label.className='cat-label';
+    // Show report name without extension
+    label.textContent=item.name.replace(/\.xdm$/i,'');
+    label.title=item.path;
+
+    row.appendChild(toggle);
+    row.appendChild(icon);
+    row.appendChild(label);
+
+    row.addEventListener('click',function(){ catOpenXdm(item,row); });
+    node.appendChild(row);
+  }
+
+  return node;
+}
+
+async function catOpenXdm(item, rowEl){
+  // Mark active in tree
+  if(activeCatNode)activeCatNode.classList.remove('active');
+  activeCatNode=rowEl;
+  rowEl.classList.add('active');
+
+  setCatalogStatus('loading','Fetching…');
+
+  try{
+    var resp=await fetch(PROXY_URL+'/catalog/xdm',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({fusionUrl:activeConn.url,username:activeConn.user,password:activeConn.pass,path:item.path})
+    });
+    var data=await resp.json();
+
+    if(!data.ok||!data.sql){
+      setCatalogStatus('error','No SQL found');
+      showErr(data.message||'No SQL found in this data model');
+      return;
+    }
+
+    // Get report name without extension
+    var reportName=item.name.replace(/\.xdm$/i,'');
+
+    // Add new READONLY tab
+    tabCounter++;
+    tabs.push({
+      id:tabCounter,
+      name:reportName,
+      sql:data.sql,
+      results:null,
+      cols:[],
+      elapsed:null,
+      readonly:true  // ← readonly flag
+    });
+    renderTabs();
+    activateTab(tabs.length-1);
+    setCatalogStatus('connected','Connected');
+
+  }catch(e){
+    setCatalogStatus('error','Failed');
+    showErr('Catalog error: '+e.message);
+  }
+}
+
+/* ── Catalog panel resizer ───────────────────────────────────── */
+function initCatalogResizer(){
+  var resizer=document.getElementById('catalog-resizer');
+  var panel=document.getElementById('catalog-panel');
+  var dragging=false, startX, startW;
+  resizer.addEventListener('mousedown',function(e){
+    dragging=true;startX=e.clientX;startW=panel.offsetWidth;
+    document.body.style.userSelect='none';document.body.style.cursor='col-resize';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    var nw=startW+(e.clientX-startX);
+    panel.style.width=Math.max(120,Math.min(400,nw))+'px';
+  });
+  document.addEventListener('mouseup',function(){
+    if(!dragging)return;
+    dragging=false;document.body.style.userSelect='';document.body.style.cursor='';
+  });
 }
