@@ -28,8 +28,6 @@ window.onload=function(){
   }
   loadConns();
   addTab();
-  renderTabs();
-  activateTab(0);
   var ta=document.getElementById('sqled');
   ta.addEventListener('input',function(){doHL();doLN();autoCorrectSQL();});
   ta.addEventListener('scroll',syncScroll);
