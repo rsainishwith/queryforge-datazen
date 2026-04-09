@@ -119,7 +119,9 @@ async function loadConns(){
     var r=await fetch(PROXY_URL+'/connections?user_id='+encodeURIComponent(uid));
     var d=await r.json();
     connections=(d.connections||[]).map(function(c){
-      return {id:c.id,name:c.name,type:c.type,url:c.host,user:c.username,pass:c.password,host:c.host,port:c.port,database_name:c.database_name,reportPath:'/Custom/CloudSQL/CloudSQLReport_csv.xdo'};
+      return {id:c.id,name:c.name,type:c.type,url:c.host,user:c.username,pass:c.password,host:c.host,port:c.port,database_name:c.database_name,reportPath:'/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv.xdo'
+              //reportPath:'/Custom/CloudSQL/CloudSQLReport_csv.xdo'
+             };
     });
   }catch(e){
     console.warn('Could not fetch connections from server, using localStorage fallback',e);
@@ -182,7 +184,8 @@ async function saveConn(){
   var url=document.getElementById('mc-url').value.trim().replace(/\/$/,'');
   var user=document.getElementById('mc-user').value.trim();
   var pass=document.getElementById('mc-pass').value;
-  var path = '/Custom/CloudSQL/CloudSQLReport_csv.xdo';
+  //var path = '/Custom/CloudSQL/CloudSQLReport_csv.xdo';
+  var path = '/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv.xdo';
   if(!name){setMStatus('err','Enter a connection name');return;}
   if(!url){setMStatus('err','Enter the Oracle URL');return;}
   if(!user){setMStatus('err','Enter username');return;}
@@ -256,7 +259,8 @@ function soapCall(url,body,auth){return makeFetch(url,{method:'POST',headers:{'C
 function basicAuth(c){return 'Basic '+btoa(c.user+':'+c.pass);}
 function toBase64(s){try{return btoa(unescape(encodeURIComponent(s)));}catch(e){return btoa(s);}}
 function buildRunReportSOAP(conn,sql){
-  var b64=toBase64(sql),rp=conn.reportPath||'/Custom/CloudSQL/CloudSQLReport_csv.xdo';
+  //var b64=toBase64(sql),rp=conn.reportPath||'/Custom/CloudSQL/CloudSQLReport_csv.xdo';
+  var b64=toBase64(sql),rp=conn.reportPath||'/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv.xdo';
   return '<?xml version="1.0" encoding="UTF-8"?><soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:pub="http://xmlns.oracle.com/oxp/service/PublicReportService"><soap:Header/><soap:Body><pub:runReport><pub:reportRequest><pub:reportAbsolutePath>'+rp+'</pub:reportAbsolutePath><pub:sizeOfDataChunkDownload>-1</pub:sizeOfDataChunkDownload><pub:flattenXML>false</pub:flattenXML><pub:parameterNameValues><pub:item><pub:name>sql_query</pub:name><pub:values><pub:item><![CDATA['+b64+']]></pub:item></pub:values></pub:item><pub:item><pub:name>xdo_cursor</pub:name><pub:values><pub:item></pub:item></pub:values></pub:item></pub:parameterNameValues></pub:reportRequest></pub:runReport></soap:Body></soap:Envelope>';
 }
 function parseCSVResponse(xml){
@@ -335,7 +339,8 @@ function _executeSQL(sql){
     .then(function(resp){
       if(resp.status===401)throw new Error('Authentication failed (HTTP 401).');
       if(resp.status===403)throw new Error('Access denied (HTTP 403).');
-      if(resp.status===404)throw new Error('Report not found (HTTP 404).\n'+(conn.reportPath||'/Custom/CloudSQL/CloudSQLReport_csv.xdo'));
+      //if(resp.status===404)throw new Error('Report not found (HTTP 404).\n'+(conn.reportPath||'/Custom/CloudSQL/CloudSQLReport_csv.xdo'));
+      if(resp.status===404)throw new Error('Report not found (HTTP 404).\n'+(conn.reportPath||'/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv.xdo'));
       if(!resp.ok)return resp.text().then(function(t){throw new Error('HTTP '+resp.status+':\n'+t.slice(0,500));});
       return resp.text();
     })
