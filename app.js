@@ -343,17 +343,22 @@ function _executeSQL(sql){
       if(resp.status===404)throw new Error('Report not found (HTTP 404).\n'+(conn.reportPath||'/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv.xdo'));
       //if(!resp.ok)return resp.text().then(function(t){throw new Error('HTTP '+resp.status+':\n'+t.slice(0,500));});
       if(!resp.ok)return resp.text().then(function(t){
-  var oraMatch=t.match(/(ORA-\d+[^<\n]*)/i);
-  if(oraMatch){throw new Error(oraMatch[1].trim());}
-  var plainText=t.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-  var dataEx=plainText.match(/DataException:\s*(.+)/i);
-  var serverEx=plainText.match(/ServerException:\s*(.+)/i);
-  var generateEx=plainText.match(/generateReport[^:]*failed[^:]*:\s*(.+)/i);
-  if(dataEx)throw new Error(dataEx[1].trim().slice(0,300));
-  else if(serverEx)throw new Error(serverEx[1].trim().slice(0,300));
-  else if(generateEx)throw new Error(generateEx[1].trim().slice(0,300));
-  else throw new Error(plainText.slice(0,300));
-});
+       var oraMatch=t.match(/(ORA-\d+[^<\n]*)/i);
+        if(oraMatch){throw new Error(oraMatch[1].trim());}
+        var plainText=t.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+        // Extract everything after the LAST colon chain — that's the real error
+        var afterGenerate=plainText.match(/generateReport[^>]*?failed[^>]*?:\s*(.+)/i);
+        var afterData=plainText.match(/DataException:\s*(.+)/i);
+        var afterServer=plainText.match(/ServerException:\s*(.+)/i);
+        // Get the deepest/last meaningful message
+        var lastColon=plainText.lastIndexOf(': ');
+        var deepMsg=lastColon>-1?plainText.slice(lastColon+2).trim():'';
+        if(deepMsg&&deepMsg.length>5)throw new Error(deepMsg.slice(0,400));
+        else if(afterData)throw new Error(afterData[1].trim().slice(0,400));
+        else if(afterServer)throw new Error(afterServer[1].trim().slice(0,400));
+        else if(afterGenerate)throw new Error(afterGenerate[1].trim().slice(0,400));
+        else throw new Error(plainText.slice(0,400));
+      });
       return resp.text();
     })
     .then(function(xml){
