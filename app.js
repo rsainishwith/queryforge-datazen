@@ -50,7 +50,8 @@ window.onload=function(){
 /* ══════════ TABS ══════════════════════════════════════════════ */
 function addTab(){
   tabCounter++;
-  tabs.push({id:tabCounter,name:'New '+tabCounter,sql:'',results:null,cols:[],elapsed:null});
+  var tabNum = tabs.filter(function(t){return !t.readonly;}).length;
+  tabs.push({id:tabCounter,name:'New '+tabNum,sql:'',results:null,cols:[],elapsed:null});
   renderTabs();
   activateTab(tabs.length-1);
 }
