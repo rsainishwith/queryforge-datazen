@@ -59,12 +59,17 @@ function addTab(){
 function removeTab(i,e){
   e.stopPropagation();
   if(tabs.length===1){tabs[0].sql='';document.getElementById('sqled').value='';doHL();doLN();return;}
+  // Save current editor content back ONLY if it's not a readonly tab
+  if(tabs[activeTab]&&!tabs[activeTab].readonly){
+    tabs[activeTab].sql=document.getElementById('sqled').value;
+  }
   tabs.splice(i,1);
+  if(activeTab>=i&&activeTab>0)activeTab=activeTab-1;
   if(activeTab>=tabs.length)activeTab=tabs.length-1;
   renderTabs();activateTab(activeTab);
 }
 function activateTab(i){
-  if(tabs[activeTab])tabs[activeTab].sql=document.getElementById('sqled').value;
+  if(tabs[activeTab]&&!tabs[activeTab].readonly)tabs[activeTab].sql=document.getElementById('sqled').value;
   activeTab=i;
   document.getElementById('sqled').value=tabs[i].sql||'';
   document.getElementById('sqled').readOnly=tabs[i].readonly||false;
