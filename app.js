@@ -792,14 +792,27 @@ var _bvPendingSQL = '';
 var _bvParams = [];
 
 function detectBindVars(sql){
-  var re = /(?<![:])\:([A-Za-z_][A-Za-z0-9_]*)/g;
+  // Strip single-line comments
+  var cleaned = sql.replace(/--[^\n]*/g, '');
+  // Strip block comments
+  cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
+  // Strip string literals
+  cleaned = cleaned.replace(/'(?:[^'\\]|''|\\.)*'/g, "''");
+  // Skip internal BIP parameters used by the data model
+  var INTERNAL = new Set(['SQL_QUERY','XDO_CURSOR','P_BIND_DUMMY']);
+  var re = /(?<![:]):([A-Za-z_][A-Za-z0-9_]*)/g;
   var seen = new Set(), params = [];
   var m;
-  while ((m = re.exec(sql)) !== null){
-    if (!seen.has(m[1].toUpperCase())){ seen.add(m[1].toUpperCase()); params.push(m[1]); }
+  while ((m = re.exec(cleaned)) !== null){
+    var name = m[1].toUpperCase();
+    if (!seen.has(name) && !INTERNAL.has(name)){
+      seen.add(name);
+      params.push(m[1]);
+    }
   }
   return params;
 }
+    
 function openBindVarsModal(sql, params){
   _bvPendingSQL = sql;
   _bvParams = params;
