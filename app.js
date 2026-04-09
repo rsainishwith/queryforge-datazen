@@ -50,7 +50,7 @@ window.onload=function(){
 /* ══════════ TABS ══════════════════════════════════════════════ */
 function addTab(){
   tabCounter++;
-  var tabNum = tabs.filter(function(t){return !t.readonly;}).length+1;
+  var tabNum = tabs.filter(function(t){return !t.readonly;}).length + 1;
   tabs.push({id:tabCounter,name:'New '+tabNum,sql:'',results:null,cols:[],elapsed:null});
   renderTabs();
   activateTab(tabs.length-1);
