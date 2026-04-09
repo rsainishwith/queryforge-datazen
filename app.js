@@ -349,24 +349,22 @@ function _executeSQL(sql){
      var fm=xml.match(/<(?:faultstring|message)[^>]*>([\s\S]*?)<\/(?:faultstring|message)>/);
       if(fm&&xml.indexOf('<pub:reportBytes')===-1){
         var rawMsg=fm[1].trim();
-        // Extract ORA- error code if present
-        var oraMatch=rawMsg.match(/(ORA-\d+[^\n<.]*)/i);
-        // Extract meaningful BI/XDO message
-        var xdoMatch=rawMsg.match(/DataException:\s*([^<\n]+)/i);
-        var serverMatch=rawMsg.match(/ServerException:\s*([^<\n]+)/i);
-        var generateMatch=rawMsg.match(/generateReport[^:]*:\s*([^<\n]+)/i);
         var friendlyMsg='';
+        // First priority: ORA- error (actual Oracle DB error)
+        var oraMatch=rawMsg.match(/(ORA-\d+[^<\n]*)/i);
         if(oraMatch){
-          friendlyMsg='Oracle Error: '+oraMatch[1].trim();
-        } else if(xdoMatch){
-          friendlyMsg='Query Error: '+xdoMatch[1].trim();
-        } else if(serverMatch){
-          friendlyMsg='Server Error: '+serverMatch[1].trim();
-        } else if(generateMatch){
-          friendlyMsg='Report Error: '+generateMatch[1].trim();
+          friendlyMsg=oraMatch[1].trim();
         } else {
-          // Fallback: strip all XML tags and show plain text
-          friendlyMsg=rawMsg.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,300);
+          // Strip all XML tags to get plain text
+          var plainText=rawMsg.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+          // Try to extract the most useful part after known prefixes
+          var dataEx=plainText.match(/DataException:\s*(.+)/i);
+          var serverEx=plainText.match(/ServerException:\s*(.+)/i);
+          var generateEx=plainText.match(/generateReport[^:]*:\s*(.+)/i);
+          if(dataEx) friendlyMsg=dataEx[1].trim().slice(0,300);
+          else if(serverEx) friendlyMsg=serverEx[1].trim().slice(0,300);
+          else if(generateEx) friendlyMsg=generateEx[1].trim().slice(0,300);
+          else friendlyMsg=plainText.slice(0,300);
         }
         throw new Error(friendlyMsg);
       }
