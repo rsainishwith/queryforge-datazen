@@ -59,35 +59,24 @@ function addTab(){
 function removeTab(i,e){
   e.stopPropagation();
   if(tabs.length===1){tabs[0].sql='';document.getElementById('sqled').value='';doHL();doLN();return;}
-  // Save current editor content back ONLY if it's not a readonly tab
-  if(tabs[activeTab]&&!tabs[activeTab].readonly){
-    tabs[activeTab].sql=document.getElementById('sqled').value;
+  // Before removing, save current editor content into current active tab ONLY if not readonly
+  if(tabs[activeTab] && !tabs[activeTab].readonly){
+    tabs[activeTab].sql = document.getElementById('sqled').value;
   }
+  // Clear the editor NOW before activateTab reads it
+  document.getElementById('sqled').value = '';
   tabs.splice(i,1);
-  if(activeTab>=i&&activeTab>0)activeTab=activeTab-1;
-  if(activeTab>=tabs.length)activeTab=tabs.length-1;
+  if(activeTab>=i && activeTab>0) activeTab=activeTab-1;
+  if(activeTab>=tabs.length) activeTab=tabs.length-1;
   renderTabs();activateTab(activeTab);
 }
 function activateTab(i){
-  if(tabs[activeTab]&&!tabs[activeTab].readonly)tabs[activeTab].sql=document.getElementById('sqled').value;
-  activeTab=i;
-  document.getElementById('sqled').value=tabs[i].sql||'';
-  document.getElementById('sqled').readOnly=tabs[i].readonly||false;
-  document.getElementById('sqled').style.opacity=tabs[i].readonly?'0.8':'1';
-  doHL();doLN();
-  colFilters={};sortCol=null;
-  if(tabs[i].results){
-    resultData=tabs[i].results;resultCols=tabs[i].cols;
-    renderTable();
-  }else{
-    resultData=[];resultCols=[];
-    document.getElementById('rarea').innerHTML='<div class="nodata">No data found</div>';
-    document.getElementById('res-info').textContent='No data found';
-    document.getElementById('srows').textContent='';
-    document.getElementById('stime').textContent='';
+  // Only save editor back to tab if it's not readonly AND not being called during a removeTab
+  if(tabs[activeTab] && !tabs[activeTab].readonly){
+    tabs[activeTab].sql=document.getElementById('sqled').value;
   }
-  renderTabs();
-}
+  activeTab=i;
+  
 function renderTabs(){
   var bar=document.getElementById('tabbar');
   bar.innerHTML=tabs.map(function(t,i){
