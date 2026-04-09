@@ -341,7 +341,19 @@ function _executeSQL(sql){
       if(resp.status===403)throw new Error('Access denied (HTTP 403).');
       //if(resp.status===404)throw new Error('Report not found (HTTP 404).\n'+(conn.reportPath||'/Custom/CloudSQL/CloudSQLReport_csv.xdo'));
       if(resp.status===404)throw new Error('Report not found (HTTP 404).\n'+(conn.reportPath||'/Custom/QueryForgeDataZen/QueryForgeDataZenReport_csv.xdo'));
-      if(!resp.ok)return resp.text().then(function(t){throw new Error('HTTP '+resp.status+':\n'+t.slice(0,500));});
+      //if(!resp.ok)return resp.text().then(function(t){throw new Error('HTTP '+resp.status+':\n'+t.slice(0,500));});
+      if(!resp.ok)return resp.text().then(function(t){
+  var oraMatch=t.match(/(ORA-\d+[^<\n]*)/i);
+  if(oraMatch){throw new Error(oraMatch[1].trim());}
+  var plainText=t.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+  var dataEx=plainText.match(/DataException:\s*(.+)/i);
+  var serverEx=plainText.match(/ServerException:\s*(.+)/i);
+  var generateEx=plainText.match(/generateReport[^:]*failed[^:]*:\s*(.+)/i);
+  if(dataEx)throw new Error(dataEx[1].trim().slice(0,300));
+  else if(serverEx)throw new Error(serverEx[1].trim().slice(0,300));
+  else if(generateEx)throw new Error(generateEx[1].trim().slice(0,300));
+  else throw new Error(plainText.slice(0,300));
+});
       return resp.text();
     })
     .then(function(xml){
