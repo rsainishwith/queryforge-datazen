@@ -59,19 +59,34 @@ function addTab(){
 function removeTab(i,e){
   e.stopPropagation();
   if(tabs.length===1){tabs[0].sql='';document.getElementById('sqled').value='';doHL();doLN();return;}
-  // Before removing, save current editor content into current active tab ONLY if not readonly
-  if(tabs[activeTab] && !tabs[activeTab].readonly){
-    tabs[activeTab].sql = document.getElementById('sqled').value;
+  // Save editor into the tab being closed ONLY if it's not readonly
+  if(tabs[i] && !tabs[i].readonly){
+    tabs[i].sql = document.getElementById('sqled').value;
   }
-  // Clear the editor NOW before activateTab reads it
-  document.getElementById('sqled').value = '';
   tabs.splice(i,1);
   if(activeTab>=i && activeTab>0) activeTab=activeTab-1;
   if(activeTab>=tabs.length) activeTab=tabs.length-1;
-  renderTabs();activateTab(activeTab);
+  // Directly load the target tab SQL into editor — bypass activateTab's save logic
+  var target = tabs[activeTab];
+  document.getElementById('sqled').value = target.sql||'';
+  document.getElementById('sqled').readOnly = target.readonly||false;
+  document.getElementById('sqled').style.opacity = target.readonly?'0.8':'1';
+  doHL();doLN();
+  colFilters={};sortCol=null;
+  if(target.results){
+    resultData=target.results;resultCols=target.cols;
+    renderTable();
+  }else{
+    resultData=[];resultCols=[];
+    document.getElementById('rarea').innerHTML='<div class="nodata">No data found</div>';
+    document.getElementById('res-info').textContent='No data found';
+    document.getElementById('srows').textContent='';
+    document.getElementById('stime').textContent='';
+  }
+  renderTabs();
 }
 function activateTab(i){
-  // Only save editor back to tab if it's not readonly AND not being called during a removeTab
+  // Save current tab SQL only if not readonly
   if(tabs[activeTab] && !tabs[activeTab].readonly){
     tabs[activeTab].sql=document.getElementById('sqled').value;
   }
