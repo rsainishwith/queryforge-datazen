@@ -825,3 +825,12 @@ thead .rn-col{background:#1e293b !important;color:#6b7280;font-weight:600 !impor
 
 /* ── Editor flex fix ── */
 .editor-section { flex: 1; min-width: 0; }
+
+.col-resizer {
+  position: absolute;
+  right: 0; top: 0;
+  width: 5px; height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+}
+.col-resizer:hover { background: #4f8ef7; }
