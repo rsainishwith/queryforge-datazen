@@ -8,7 +8,6 @@ var connections=[], activeConn=null;
 var resultData=[], resultCols=[];
 var fontSize=13, running=false;
 var sortCol=null, sortAsc=true;
-var bindVarHistory = {};
 var colFilters={};
 
 /* ── Catalog State ───────────────────────────────────────────── */
@@ -195,15 +194,7 @@ async function deleteConn(i){
   connections.splice(i,1);saveConns();renderConnSel();renderSavedConns();checkBanner();
   if(activeConn&&!connections.includes(activeConn)){activeConn=null;setStatus('','Not connected');document.getElementById('title-conn').textContent='No connection selected';}
 }
-
-function openConnModal(){
-  document.getElementById('conn-overlay').classList.add('show');
-  setMStatus('','');
-  document.getElementById('mc-name').value='';
-  document.getElementById('mc-url').value='';
-  document.getElementById('mc-user').value='';
-  document.getElementById('mc-pass').value='';
-}
+function openConnModal(){document.getElementById('conn-overlay').classList.add('show');setMStatus('','');}
 function closeConnModal(){document.getElementById('conn-overlay').classList.remove('show');}
 function setMStatus(type,msg){var el=document.getElementById('mc-status');el.className='mstatus'+(type?' '+type:'');el.textContent=msg;}
 function testConn(){
@@ -688,76 +679,6 @@ function fpClose(){
   fpCol=null;
 }
 
-/* ══════════ QUERY HISTORY ════════════════════════════════════ */
-var queryHistory = [];
-var historyVisible = false;
-
-function addToHistory(sql, connName) {
-  var now = new Date();
-  var ts = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
-  queryHistory.unshift({ sql: sql, conn: connName || 'Unknown', time: ts });
-  if (queryHistory.length > 100) queryHistory.pop(); // max 100
-}
-
-function toggleHistory() {
-  historyVisible = !historyVisible;
-  var btn = document.getElementById('history-btn');
-  if (historyVisible) {
-    btn.style.background = '#1565c0';
-    btn.style.color = '#fff';
-    renderHistory();
-  } else {
-    btn.style.background = '';
-    btn.style.color = '';
-    document.getElementById('rarea').innerHTML = '<div class="nodata">No data found</div>';
-    document.getElementById('res-info').textContent = 'No data found';
-  }
-}
-
-function renderHistory() {
-  var rarea = document.getElementById('rarea');
-  document.getElementById('res-info').textContent = queryHistory.length + ' queries in history';
-  if (!queryHistory.length) {
-    rarea.innerHTML = '<div class="nodata">No queries run yet in this session.</div>';
-    return;
-  }
-  var h = '<div style="padding:8px;display:flex;flex-direction:column;gap:6px;">';
-  queryHistory.forEach(function(item, i) {
-    var shortSql = item.sql.replace(/\s+/g, ' ').trim();
-    if (shortSql.length > 120) shortSql = shortSql.slice(0, 120) + '…';
-    h += '<div onclick="loadFromHistory(' + i + ')" style="'
-      + 'background:#0f172a;border:1px solid #1e293b;border-radius:6px;padding:10px 14px;'
-      + 'cursor:pointer;transition:border-color 0.15s;" '
-      + 'onmouseover="this.style.borderColor=\'#3b82f6\'" '
-      + 'onmouseout="this.style.borderColor=\'#1e293b\'">'
-      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
-      + '<span style="font-size:11px;color:#3b82f6;font-weight:600;">🔌 ' + esc(item.conn) + '</span>'
-      + '<span style="font-size:11px;color:#64748b;">🕒 ' + esc(item.time) + '</span>'
-      + '</div>'
-      + '<div style="font-size:12px;color:#cbd5e1;font-family:monospace;white-space:pre-wrap;word-break:break-word;">'
-      + esc(shortSql)
-      + '</div>'
-      + '<div style="margin-top:6px;font-size:11px;color:#475569;">Click to load into editor</div>'
-      + '</div>';
-  });
-  h += '</div>';
-  rarea.innerHTML = h;
-}
-
-function loadFromHistory(i) {
-  var item = queryHistory[i];
-  if (!item) return;
-  historyVisible = false;
-  var btn = document.getElementById('history-btn');
-  if (btn) { btn.style.background = ''; btn.style.color = ''; }
-  var ta = document.getElementById('sqled');
-  ta.value = item.sql;
-  tabs[activeTab].sql = item.sql;
-  doHL(); doLN();
-  document.getElementById('rarea').innerHTML = '<div class="nodata">No data found</div>';
-  document.getElementById('res-info').textContent = 'No data found';
-}
-
 /* ══════════ EXPORT ════════════════════════════════════════════ */
 function exportCSV(){
   var data=getFilteredData();if(!data.length){alert('No data to export.');return;}
@@ -868,7 +789,6 @@ function sqlHL(code){
   return s;
 }
 function clearEditor(){document.getElementById('sqled').value='';doHL();doLN();}
-
 function formatSQL(){
   var ta=document.getElementById('sqled'), v=ta.value;
   var literals=[];
@@ -936,122 +856,6 @@ function formatSQL(){
   v=v.replace(/^\n+/,'').replace(/\n{3,}/g,'\n\n').trim();
   ta.value=v; doHL(); doLN();
 }
-  // Step 5: Main clause regex splits
-  var result = '';
-  var clauseRe = /\b(SELECT(?:\s+DISTINCT)?|FROM|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|CONNECT\s+BY|START\s+WITH|UNION\s+ALL|UNION|INTERSECT|MINUS|LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|FULL\s+(?:OUTER\s+)?JOIN|CROSS\s+JOIN|NATURAL\s+JOIN|JOIN|PIVOT|UNPIVOT|MERGE\s+INTO|WHEN\s+MATCHED|WHEN\s+NOT\s+MATCHED)\b/gi;
-
-  var clauses = [], lastIdx = 0, m;
-  clauseRe.lastIndex = 0;
-  while((m = clauseRe.exec(v)) !== null){
-    if(lastIdx < m.index){
-      clauses.push({ kw: '', body: v.slice(lastIdx, m.index).trim() });
-    }
-    clauses.push({ kw: m[0].toUpperCase().replace(/\s+/g,' '), body: '', start: m.index + m[0].length });
-    lastIdx = m.index + m[0].length;
-  }
-  if(lastIdx < v.length) clauses.push({ kw: '', body: v.slice(lastIdx).trim() });
-
-  // Attach body to each clause
-  for(var ci=0; ci<clauses.length; ci++){
-    if(clauses[ci].body === '' && clauses[ci].start !== undefined){
-      var end = (ci+1 < clauses.length && clauses[ci+1].start !== undefined)
-        ? clauses[ci+1].start - clauses[ci+1].kw.length - (v.slice(clauses[ci].start).match(/^\s+/)||[''])[0].length
-        : v.length;
-      clauses[ci].body = v.slice(clauses[ci].start, end).trim();
-    }
-  }
-
-  var lines = [];
-
-  clauses.forEach(function(cl){
-    if(!cl.kw && !cl.body) return;
-    var kw = cl.kw, body = cl.body ? cl.body.replace(/^[,\s]+/,'').trim() : '';
-
-    if(kw === 'SELECT' || kw === 'SELECT DISTINCT'){
-      var parts = splitTopLevel(body);
-      lines.push(kw);
-      parts.forEach(function(p, i){
-        lines.push('    ' + p.trim() + (i < parts.length-1 ? ',' : ''));
-      });
-
-    } else if(kw === 'FROM'){
-      var parts = splitTopLevel(body);
-      lines.push('FROM');
-      parts.forEach(function(p, i){
-        lines.push('    ' + p.trim() + (i < parts.length-1 ? ',' : ''));
-      });
-
-    } else if(kw === 'WHERE'){
-      lines.push('WHERE');
-      var conditions = splitAndOr(body);
-      conditions.forEach(function(cond, i){
-        var c = cond.trim();
-        if(i === 0){
-          lines.push('        ' + c);
-        } else {
-          // AND/OR is already prefixed
-          var kwPart = c.match(/^(AND|OR)\s+/i);
-          if(kwPart){
-            lines.push('    ' + kwPart[1].toUpperCase());
-            lines.push('        ' + c.slice(kwPart[0].length).trim());
-          } else {
-            lines.push('        ' + c);
-          }
-        }
-      });
-
-    } else if(kw === 'GROUP BY'){
-      var parts = splitTopLevel(body);
-      lines.push('GROUP BY');
-      parts.forEach(function(p, i){
-        lines.push('    ' + p.trim() + (i < parts.length-1 ? ',' : ''));
-      });
-
-    } else if(kw === 'ORDER BY'){
-      var parts = splitTopLevel(body);
-      lines.push('ORDER BY');
-      parts.forEach(function(p, i){
-        lines.push('    ' + p.trim() + (i < parts.length-1 ? ',' : ''));
-      });
-
-    } else if(kw === 'HAVING'){
-      lines.push('HAVING');
-      var conditions = splitAndOr(body);
-      conditions.forEach(function(cond, i){
-        var c = cond.trim();
-        if(i === 0){
-          lines.push('        ' + c);
-        } else {
-          var kwPart = c.match(/^(AND|OR)\s+/i);
-          if(kwPart){
-            lines.push('    ' + kwPart[1].toUpperCase());
-            lines.push('        ' + c.slice(kwPart[0].length).trim());
-          } else {
-            lines.push('        ' + c);
-          }
-        }
-      });
-
-    } else if(kw){
-      lines.push(kw);
-      if(body) lines.push('    ' + body);
-
-    } else {
-      if(body) lines.push(body);
-    }
-  });
-
-  v = lines.join('\n');
-
-  // Step 6: Restore literals and comments
-  v = v.replace(/\x00STR(\d+)\x00/g, function(_,i){ return literals[parseInt(i)]; });
-  v = v.replace(/\x00CMT(\d+)\x00/g, function(_,i){ return comments[parseInt(i)]; });
-
-  // Step 7: Clean up
-  v = v.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n').trim();
-  ta.value = v; doHL(); doLN();
-}
-
 function changeFontSize(d){fontSize=Math.max(10,Math.min(20,fontSize+d));['sqled','hl','lnums'].forEach(function(id){document.getElementById(id).style.fontSize=fontSize+'px';});}
 function findInSQL(){var q=prompt('Find in SQL:');if(!q)return;var ta=document.getElementById('sqled'),idx=ta.value.toLowerCase().indexOf(q.toLowerCase());if(idx>-1){ta.focus();ta.setSelectionRange(idx,idx+q.length);}else alert('"'+q+'" not found.');}
 
@@ -1102,7 +906,7 @@ function openBindVarsModal(sql, params){
     html += '<div class="bv-field" style="display:flex;flex-direction:column;gap:4px;">'
       + '<label>:' + esc(p) + '</label>'
       + '<div style="display:flex;gap:6px;align-items:center;">'
-      + '<input type="text" id="bv-input-' + esc(p) + '" autocomplete="off" spellcheck="false" placeholder="Enter value…" style="flex:1;" value="' + esc(bindVarHistory[p.toUpperCase()] || '') + '"/>'
+      + '<input type="text" id="bv-input-' + esc(p) + '" autocomplete="off" spellcheck="false" placeholder="Enter value…" style="flex:1;"/>'
       + '<select id="bv-type-' + esc(p) + '" title="Data type" style="padding:3px 6px;border:1px solid #374151;border-radius:3px;background:#0f172a;color:#e5e7eb;font-size:11px;cursor:pointer;outline:none;">'
       + '<option value="string" selected>VARCHAR</option>'
       + '<option value="number">NUMBER</option>'
@@ -1138,7 +942,6 @@ function bvSubmit(){
     var el    = document.getElementById('bv-input-' + p);
     var tsel  = document.getElementById('bv-type-' + p);
     var val   = el ? el.value : '';
-    bindVarHistory[p.toUpperCase()] = val;
     var dtype = tsel ? tsel.value : 'string';
     var re    = new RegExp('(?<![:])\:' + p + '(?![A-Za-z0-9_])', 'gi');
     var replacement;
