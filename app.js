@@ -983,7 +983,7 @@ function bvCancel(){
 function bvSubmit(){
   var sql = _bvPendingSQL;
   _bvParams.forEach(function(p){
-    var el    = document.getElementById('bv-input-' + p);
+    var el    = document.getElementById('bv-input-' + esc(p));
     var tsel  = document.getElementById('bv-type-' + p);
     var val   = el ? el.value : '';
     bindVarHistory[p.toUpperCase()] = val;
