@@ -445,6 +445,7 @@ function _executeSQL(sql){
               var cols=p.cols;
               tabs[activeTab].results=rows;tabs[activeTab].cols=cols;tabs[activeTab].elapsed=elapsed;
               resultData=rows;resultCols=cols;colFilters={};sortCol=null;
+              addToHistory(sql, conn.name);
               renderTable();setStatus('ok',conn.name);
               resolve();
             },0);
@@ -686,6 +687,76 @@ function fpClose(){
   popup.style.maxHeight='';
   popup.style.visibility='';
   fpCol=null;
+}
+
+/* ══════════ QUERY HISTORY ════════════════════════════════════ */
+var queryHistory = [];
+var historyVisible = false;
+
+function addToHistory(sql, connName) {
+  var now = new Date();
+  var ts = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+  queryHistory.unshift({ sql: sql, conn: connName || 'Unknown', time: ts });
+  if (queryHistory.length > 100) queryHistory.pop(); // max 100
+}
+
+function toggleHistory() {
+  historyVisible = !historyVisible;
+  var btn = document.getElementById('history-btn');
+  if (historyVisible) {
+    btn.style.background = '#1565c0';
+    btn.style.color = '#fff';
+    renderHistory();
+  } else {
+    btn.style.background = '';
+    btn.style.color = '';
+    document.getElementById('rarea').innerHTML = '<div class="nodata">No data found</div>';
+    document.getElementById('res-info').textContent = 'No data found';
+  }
+}
+
+function renderHistory() {
+  var rarea = document.getElementById('rarea');
+  document.getElementById('res-info').textContent = queryHistory.length + ' queries in history';
+  if (!queryHistory.length) {
+    rarea.innerHTML = '<div class="nodata">No queries run yet in this session.</div>';
+    return;
+  }
+  var h = '<div style="padding:8px;display:flex;flex-direction:column;gap:6px;">';
+  queryHistory.forEach(function(item, i) {
+    var shortSql = item.sql.replace(/\s+/g, ' ').trim();
+    if (shortSql.length > 120) shortSql = shortSql.slice(0, 120) + '…';
+    h += '<div onclick="loadFromHistory(' + i + ')" style="'
+      + 'background:#0f172a;border:1px solid #1e293b;border-radius:6px;padding:10px 14px;'
+      + 'cursor:pointer;transition:border-color 0.15s;" '
+      + 'onmouseover="this.style.borderColor=\'#3b82f6\'" '
+      + 'onmouseout="this.style.borderColor=\'#1e293b\'">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+      + '<span style="font-size:11px;color:#3b82f6;font-weight:600;">🔌 ' + esc(item.conn) + '</span>'
+      + '<span style="font-size:11px;color:#64748b;">🕒 ' + esc(item.time) + '</span>'
+      + '</div>'
+      + '<div style="font-size:12px;color:#cbd5e1;font-family:monospace;white-space:pre-wrap;word-break:break-word;">'
+      + esc(shortSql)
+      + '</div>'
+      + '<div style="margin-top:6px;font-size:11px;color:#475569;">Click to load into editor</div>'
+      + '</div>';
+  });
+  h += '</div>';
+  rarea.innerHTML = h;
+}
+
+function loadFromHistory(i) {
+  var item = queryHistory[i];
+  if (!item) return;
+  historyVisible = false;
+  var btn = document.getElementById('history-btn');
+  if (btn) { btn.style.background = ''; btn.style.color = ''; }
+  var ta = document.getElementById('sqled');
+  ta.value = item.sql;
+  tabs[activeTab].sql = item.sql;
+  doHL(); doLN();
+  document.getElementById('rarea').innerHTML = '<div class="nodata">No data found</div>';
+  document.getElementById('res-info').textContent = 'No data found';
 }
 
 /* ══════════ EXPORT ════════════════════════════════════════════ */
