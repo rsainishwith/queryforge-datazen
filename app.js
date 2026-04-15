@@ -445,7 +445,6 @@ function _executeSQL(sql){
               var cols=p.cols;
               tabs[activeTab].results=rows;tabs[activeTab].cols=cols;tabs[activeTab].elapsed=elapsed;
               resultData=rows;resultCols=cols;colFilters={};sortCol=null;
-              addToHistory(sql, conn.name);
               renderTable();setStatus('ok',conn.name);
               resolve();
             },0);
@@ -871,48 +870,72 @@ function sqlHL(code){
 function clearEditor(){document.getElementById('sqled').value='';doHL();doLN();}
 
 function formatSQL(){
-  var ta = document.getElementById('sqled'), v = ta.value;
-
-  // Step 1: Preserve comments and string literals
-  var comments = [], literals = [];
-  v = v.replace(/--[^\n]*/g, function(m){ comments.push(m); return '\x00CMT'+(comments.length-1)+'\x00'; });
-  v = v.replace(/\/\*[\s\S]*?\*\//g, function(m){ comments.push(m); return '\x00CMT'+(comments.length-1)+'\x00'; });
-  v = v.replace(/'(?:[^'\\]|''|\\.)*'/g, function(m){ literals.push(m); return '\x00STR'+(literals.length-1)+'\x00'; });
-
-  // Step 2: Collapse all whitespace
-  v = v.replace(/\s+/g, ' ').trim();
-
-  // Step 3: Helper — split by comma at top level (ignoring parens)
-  function splitTopLevel(str){
-    var parts=[], cur='', d=0;
-    for(var i=0;i<str.length;i++){
-      var c=str[i];
-      if(c==='(') d++; if(c===')') d--;
-      if(c===',' && d===0){ parts.push(cur.trim()); cur=''; }
-      else cur+=c;
-    }
-    if(cur.trim()) parts.push(cur.trim());
-    return parts;
-  }
-
-  // Step 4: Helper — split AND/OR at top level
-  function splitAndOr(str){
-    var parts=[], cur='', d=0;
-    var i=0;
-    while(i<str.length){
-      var c=str[i];
-      if(c==='(') d++; if(c===')') d--;
-      if(d===0){
-        var upper=str.slice(i).toUpperCase();
-        if(upper.match(/^AND\b/)){ parts.push(cur.trim()); cur='AND '; i+=3; continue; }
-        if(upper.match(/^OR\b/)){ parts.push(cur.trim()); cur='OR '; i+=2; continue; }
+  var ta=document.getElementById('sqled'), v=ta.value;
+  var literals=[];
+  v=v.replace(/'(?:[^'\\]|''|\\.)*'/g,function(m){literals.push(m);return '\x00STR'+(literals.length-1)+'\x00';});
+  v=v.replace(/\s+/g,' ').trim();
+  var lineBreakKws=[
+    'CROSS JOIN','NATURAL JOIN','LEFT OUTER JOIN','RIGHT OUTER JOIN','FULL OUTER JOIN',
+    'LEFT JOIN','RIGHT JOIN','INNER JOIN','FULL JOIN','JOIN',
+    'ORDER BY','GROUP BY','UNION ALL','UNION','INTERSECT','MINUS',
+    'SELECT','FROM','WHERE','HAVING','CONNECT BY','START WITH',
+    'PIVOT','UNPIVOT','MERGE INTO','WHEN MATCHED','WHEN NOT MATCHED'
+  ];
+  lineBreakKws.forEach(function(k){
+    var re=new RegExp('(?<![\\w(])('+k+')(?![\\w])', 'gi');
+    v=v.replace(re, function(_,m){ return '\n'+m.toUpperCase(); });
+  });
+  v=v.replace(/(?<=[\w\x00)])\s+(AND|OR)\s+(?=[\w\x00('])/gi, function(_,kw){ return '\n  '+kw.toUpperCase()+' '; });
+  (function(){
+    function splitTopLevel(str){
+      var parts=[], cur='', d=0;
+      for(var i=0;i<str.length;i++){
+        var c=str[i];
+        if(c==='(') d++;if(c===')') d--;
+        if(c===',' && d===0){ parts.push(cur.trim()); cur=''; }
+        else cur+=c;
       }
-      cur+=c; i++;
+      if(cur.trim()) parts.push(cur.trim());
+      return parts;
     }
-    if(cur.trim()) parts.push(cur.trim());
-    return parts.filter(function(p){return p.length>0;});
-  }
-
+    var lines=v.split('\n'), out=[];
+    var clause=null;
+    lines.forEach(function(line){
+      var trimmed=line.trim();
+      if(/^SELECT\b/i.test(trimmed)) clause='select';
+      else if(/^FROM\b/i.test(trimmed)) clause='from';
+      else if(/^(WHERE|JOIN|LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|ORDER|GROUP|HAVING|UNION|INTERSECT|MINUS|CONNECT|START|PIVOT|MERGE)\b/i.test(trimmed)) clause=null;
+      if(clause==='select'){
+        var kwMatch=trimmed.match(/^(SELECT\s+(?:DISTINCT\s+|ALL\s+)?)/i);
+        var prefix=kwMatch?kwMatch[1]:'';
+        var rest=trimmed.slice(prefix.length);
+        var parts=splitTopLevel(rest);
+        if(parts.length>1){
+          var indent=' '.repeat(prefix.length);
+          out.push(prefix+parts[0]+',');
+          for(var j=1;j<parts.length;j++){out.push(indent+parts[j]+(j===parts.length-1?'':','));}
+          return;
+        }
+      } else if(clause==='from'){
+        var fwMatch=trimmed.match(/^(FROM\s+)/i);
+        var fprefix=fwMatch?fwMatch[1]:'';
+        var frest=trimmed.slice(fprefix.length);
+        var fparts=splitTopLevel(frest);
+        if(fparts.length>1){
+          var findent=' '.repeat(fprefix.length);
+          out.push(fprefix+fparts[0]+',');
+          for(var j=1;j<fparts.length;j++){out.push(findent+fparts[j]+(j===fparts.length-1?'':','));}
+          clause=null;return;
+        }
+      }
+      out.push(line);
+    });
+    v=out.join('\n');
+  })();
+  v=v.replace(/\x00STR(\d+)\x00/g, function(_,i){ return literals[parseInt(i)]; });
+  v=v.replace(/^\n+/,'').replace(/\n{3,}/g,'\n\n').trim();
+  ta.value=v; doHL(); doLN();
+}
   // Step 5: Main clause regex splits
   var result = '';
   var clauseRe = /\b(SELECT(?:\s+DISTINCT)?|FROM|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|CONNECT\s+BY|START\s+WITH|UNION\s+ALL|UNION|INTERSECT|MINUS|LEFT\s+(?:OUTER\s+)?JOIN|RIGHT\s+(?:OUTER\s+)?JOIN|INNER\s+JOIN|FULL\s+(?:OUTER\s+)?JOIN|CROSS\s+JOIN|NATURAL\s+JOIN|JOIN|PIVOT|UNPIVOT|MERGE\s+INTO|WHEN\s+MATCHED|WHEN\s+NOT\s+MATCHED)\b/gi;
