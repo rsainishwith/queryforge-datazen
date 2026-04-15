@@ -163,16 +163,7 @@ var server = http.createServer(function(req, res) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ message: 'Missing required fields: user_id, name, type' }));
       }
-    // Check for duplicate connection for same user
-        const existing = await pool.query(
-          'SELECT id FROM connections WHERE user_id=$1 AND name=$2 AND host=$3',
-          [user_id, name, host || null]
-        );
-        if (existing.rows.length > 0) {
-          res.writeHead(409, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ message: 'A connection with the same name and URL already exists.' }));
-        }
-      
+
       try {
         const result = await pool.query(
           `INSERT INTO connections (user_id, name, type, host, port, database_name, username, password)
