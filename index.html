@@ -119,7 +119,6 @@
         <div class="res-bar">
           <button class="cadd" onclick="exportCSV()" style="font-size:11px;padding:2px 8px;flex-shrink:0;">⬇ CSV</button>
           <button class="cadd" id="gtc-toggle-btn" onclick="toggleGtcPanel()" style="font-size:11px;padding:2px 8px;flex-shrink:0;" title="Go to Column">→ Column</button>
-          <button class="cadd" id="history-btn" onclick="toggleHistory()" style="font-size:11px;padding:2px 8px;flex-shrink:0;" title="Query History">🕒 History</button>
           <span id="res-info" style="flex:1;text-align:center;">No data found</span>
           <div class="sir-wrap">
             <input class="sir-input" id="sir-input" type="text" placeholder="🔍 Search in Result" oninput="sirSearch(this.value)" onkeydown="sirKeyNav(event)"/>
@@ -226,7 +225,7 @@
         </div>
         <div class="mf">
           <label>Password</label>
-          <input type="password" id="mc-pass" autocomplete="new-password">
+          <input type="password" id="mc-pass" autocomplete="off">
         </div>
         <div class="mstatus" id="mc-status"></div>
       </div>
