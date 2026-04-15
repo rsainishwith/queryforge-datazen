@@ -8,6 +8,7 @@ var connections=[], activeConn=null;
 var resultData=[], resultCols=[];
 var fontSize=13, running=false;
 var sortCol=null, sortAsc=true;
+var bindVarHistory = {};
 var colFilters={};
 
 /* ── Catalog State ───────────────────────────────────────────── */
@@ -914,7 +915,7 @@ function openBindVarsModal(sql, params){
     html += '<div class="bv-field" style="display:flex;flex-direction:column;gap:4px;">'
       + '<label>:' + esc(p) + '</label>'
       + '<div style="display:flex;gap:6px;align-items:center;">'
-      + '<input type="text" id="bv-input-' + esc(p) + '" autocomplete="off" spellcheck="false" placeholder="Enter value…" style="flex:1;"/>'
+      + '<input type="text" id="bv-input-' + esc(p) + '" autocomplete="off" spellcheck="false" placeholder="Enter value…" style="flex:1;" value="' + esc(bindVarHistory[p.toUpperCase()] || '') + '"/>'
       + '<select id="bv-type-' + esc(p) + '" title="Data type" style="padding:3px 6px;border:1px solid #374151;border-radius:3px;background:#0f172a;color:#e5e7eb;font-size:11px;cursor:pointer;outline:none;">'
       + '<option value="string" selected>VARCHAR</option>'
       + '<option value="number">NUMBER</option>'
@@ -950,6 +951,7 @@ function bvSubmit(){
     var el    = document.getElementById('bv-input-' + p);
     var tsel  = document.getElementById('bv-type-' + p);
     var val   = el ? el.value : '';
+    bindVarHistory[p.toUpperCase()] = val;
     var dtype = tsel ? tsel.value : 'string';
     var re    = new RegExp('(?<![:])\:' + p + '(?![A-Za-z0-9_])', 'gi');
     var replacement;
