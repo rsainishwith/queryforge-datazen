@@ -496,35 +496,78 @@ function renderTable(){
     return;
   }
 
-  var h='<table id="vs-table" style="table-layout:fixed;width:100%;">';
-  h+='<thead><tr><th class="rn-col" style="width:40px;">#</th>';
-  resultCols.forEach(function(c){
-    var arrow=sortCol===c?(sortAsc?' ▲':' ▼'):'';
-    var hasFilter=colFilters[c]!=null;
-    var iconFill=hasFilter?'currentColor':'none';
-    h+='<th>'
-      +'<div class="th-inner">'
-      +'<span class="th-label" onclick="clickSort(\''+escJ(c)+'\')" title="Sort by '+esc(c)+'">'+esc(c)+arrow+'</span>'
-      +'<button class="th-filter-btn'+(hasFilter?' active':'')+'" '
-      +'onclick="fpOpen(event,\''+escJ(c)+'\')" title="Filter">'
-      +'<svg width="11" height="11" viewBox="0 0 24 24" fill="'+iconFill+'" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
-      +'<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'
-      +'</svg>'
-      +'</button>'
-      +'</div>'
-      +'</th>';
-  });
-  h+='</tr></thead></table>';
-  h+='<div id="vs-scroll" style="flex:1;overflow-y:auto;overflow-x:auto;">'
-    +'<div id="vs-spacer-top" style="height:0px;"></div>'
-    +'<table id="vs-body-table" style="table-layout:fixed;width:100%;border-collapse:collapse;"><tbody id="vs-tbody"></tbody></table>'
-    +'<div id="vs-spacer-bot" style="height:0px;"></div>'
-    +'</div>';
+var COL_W = 160;
+var totalW = 40 + resultCols.length * COL_W;
+var colgroup = '<colgroup><col style="width:40px;">'
+  + resultCols.map(function(){ return '<col style="width:'+COL_W+'px;">'; }).join('')
+  + '</colgroup>';
 
-  document.getElementById('rarea').innerHTML=h;
+var h='<div id="vs-header-scroll" style="overflow-x:hidden;">'
+  +'<table id="vs-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;">'
+  +colgroup
+  +'<thead><tr><th class="rn-col" style="width:40px;">#</th>';
+resultCols.forEach(function(c){
+  var arrow=sortCol===c?(sortAsc?' ▲':' ▼'):'';
+  var hasFilter=colFilters[c]!=null;
+  var iconFill=hasFilter?'currentColor':'none';
+  h+='<th style="position:relative;">'
+    +'<div class="th-inner">'
+    +'<span class="th-label" onclick="clickSort(\''+escJ(c)+'\')" title="Sort by '+esc(c)+'">'+esc(c)+arrow+'</span>'
+    +'<button class="th-filter-btn'+(hasFilter?' active':'')+'" '
+    +'onclick="fpOpen(event,\''+escJ(c)+'\')" title="Filter">'
+    +'<svg width="11" height="11" viewBox="0 0 24 24" fill="'+iconFill+'" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+    +'<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'
+    +'</svg>'
+    +'</button>'
+    +'</div>'
+    +'<div class="col-resizer" onmousedown="startResize(event)"></div>'
+    +'</th>';
+});
+h+='</tr></thead></table></div>';
+h+='<div id="vs-scroll" style="flex:1;overflow-y:auto;overflow-x:auto;">'
+  +'<div id="vs-spacer-top" style="height:0px;"></div>'
+  +'<table id="vs-body-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'
+  +colgroup
+  +'<tbody id="vs-tbody"></tbody></table>'
+  +'<div id="vs-spacer-bot" style="height:0px;"></div>'
+  +'</div>';
 
-  var scroller=document.getElementById('vs-scroll');
-  scroller.addEventListener('scroll',function(){vsOnScroll(scroller);});
+document.getElementById('rarea').innerHTML=h;
+
+var scroller=document.getElementById('vs-scroll');
+var headerScroll=document.getElementById('vs-header-scroll');
+scroller.addEventListener('scroll',function(){
+  vsOnScroll(scroller);
+  headerScroll.scrollLeft=scroller.scrollLeft;
+});
+
+(function(){
+  var startX,startW,th,colIdx;
+  window.startResize=function(e){
+    th=e.target.closest('th');
+    colIdx=Array.from(th.parentElement.children).indexOf(th);
+    startX=e.clientX;
+    startW=th.offsetWidth;
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+    e.preventDefault();
+  };
+  function onMove(e){
+    var w=Math.max(60,startW+(e.clientX-startX));
+    var cols1=document.querySelectorAll('#vs-table colgroup col');
+    var cols2=document.querySelectorAll('#vs-body-table colgroup col');
+    if(cols1[colIdx])cols1[colIdx].style.width=w+'px';
+    if(cols2[colIdx])cols2[colIdx].style.width=w+'px';
+    var total=0;
+    cols1.forEach(function(c){total+=parseInt(c.style.width)||COL_W;});
+    document.getElementById('vs-table').style.width=total+'px';
+    document.getElementById('vs-body-table').style.width=total+'px';
+  }
+  function onUp(){
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+  }
+})();
 
   vsRenderVisible(0);
   if(gtcOpen)buildGtcList(document.getElementById('gtc-search').value);
