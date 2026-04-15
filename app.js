@@ -194,7 +194,15 @@ async function deleteConn(i){
   connections.splice(i,1);saveConns();renderConnSel();renderSavedConns();checkBanner();
   if(activeConn&&!connections.includes(activeConn)){activeConn=null;setStatus('','Not connected');document.getElementById('title-conn').textContent='No connection selected';}
 }
-function openConnModal(){document.getElementById('conn-overlay').classList.add('show');setMStatus('','');}
+
+function openConnModal(){
+  document.getElementById('conn-overlay').classList.add('show');
+  setMStatus('','');
+  document.getElementById('mc-name').value='';
+  document.getElementById('mc-url').value='';
+  document.getElementById('mc-user').value='';
+  document.getElementById('mc-pass').value='';
+}
 function closeConnModal(){document.getElementById('conn-overlay').classList.remove('show');}
 function setMStatus(type,msg){var el=document.getElementById('mc-status');el.className='mstatus'+(type?' '+type:'');el.textContent=msg;}
 function testConn(){
