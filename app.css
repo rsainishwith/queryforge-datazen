@@ -845,7 +845,7 @@ thead .rn-col{background:#1e293b !important;color:#6b7280;font-weight:600 !impor
 }
 #vs-scroll {
   flex: 1;
-  overflow-x: auto;
+  overflow-x: scroll;
   overflow-y: scroll;
 }
 #vs-scroll::-webkit-scrollbar {
