@@ -835,46 +835,25 @@ thead .rn-col{background:#1e293b !important;color:#6b7280;font-weight:600 !impor
 }
 .col-resizer:hover { background: #4f8ef7; }
 
+/* ── Fix scrollbars always visible ── */
 #rarea {
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  flex: 1;
+  min-height: 0;
 }
 #vs-scroll {
+  flex: 1;
   overflow-x: auto;
-  overflow-y: auto;
+  overflow-y: scroll;
 }
 #vs-scroll::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
-#vs-scroll::-webkit-scrollbar-track {
-  background: #1e293b;
-}
-#vs-scroll::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 4px;
-}
-#vs-scroll::-webkit-scrollbar-corner {
-  background: #1e293b;
-}
-
-
-#vs-header-scroll::-webkit-scrollbar {
-  height: 0;
-}
-#vs-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-#vs-scroll::-webkit-scrollbar-track {
-  background: #1e293b;
-}
-#vs-scroll::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 4px;
-}
-#vs-scroll::-webkit-scrollbar-corner {
-  background: #1e293b;
-}
+#vs-scroll::-webkit-scrollbar-track { background: #1e293b; }
+#vs-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+#vs-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }
+#vs-scroll::-webkit-scrollbar-corner { background: #1e293b; }
+#vs-header-scroll::-webkit-scrollbar { height: 0; width: 0; }
