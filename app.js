@@ -591,7 +591,8 @@ function vsRenderVisible(scrollTop){
     resultCols.forEach(function(c){
       var v=row[c];
       if(v===null||v===undefined||v==='')h+='<td class="null-cell">(null)</td>';
-      else h+='<td>'+esc(String(v))+'</td>';
+      //else h+='<td>'+esc(String(v))+'</td>';
+      else h+='<td class="'+(_sirMatches.length&&esc(String(v)).toLowerCase().includes(_sirLastQ||'')?'sir-hl':'')+'">'+esc(String(v))+'</td>';
     });
     h+='</tr>';
   }
@@ -1042,13 +1043,14 @@ function gtcScrollTo(colName){
 
 /* ══════════ SEARCH IN RESULT ══════════════════════════════════ */
 var _sirMatches = [], _sirIdx = -1;
-
+var _sirLastQ = '';
 function sirSearch(q){
   document.querySelectorAll('#rarea td.sir-hl').forEach(function(td){ td.classList.remove('sir-hl', 'sir-hl-cur'); });
   _sirMatches = []; _sirIdx = -1;
   document.getElementById('sir-count').textContent = '';
   if (!q.trim()) return;
   var lq = q.toLowerCase();
+  _sirLastQ = lq;
   var cells = document.querySelectorAll('#rarea tbody td:not(.rn-col)');
   cells.forEach(function(td){
     if (td.textContent.toLowerCase().includes(lq)){ td.classList.add('sir-hl'); _sirMatches.push(td); }
