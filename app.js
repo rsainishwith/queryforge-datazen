@@ -202,7 +202,7 @@ function openConnModal(){
   document.getElementById('mc-name').value='';
   document.getElementById('mc-url').value='';
   document.getElementById('mc-user').value='';
-  document.getElementById('mc-pass').value='';
+  document.getElementById('mc-pass').value='New-Password';
 }
 function closeConnModal(){document.getElementById('conn-overlay').classList.remove('show');}
 function setMStatus(type,msg){var el=document.getElementById('mc-status');el.className='mstatus'+(type?' '+type:'');el.textContent=msg;}
