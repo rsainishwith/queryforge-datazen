@@ -210,6 +210,14 @@ function handleRegister() {
 
   if (!valid) { shake(); return; }
 
+  // Check if email already exists locally
+  const existingUser = findUser(email);
+  if (existingUser) {
+    showErr('err-reg-email-taken');
+    shake();
+    return;
+  }
+  
   // Prevent double-submit
   const btn = document.querySelector('#form-register .btn-primary');
   if (btn.disabled) return;
