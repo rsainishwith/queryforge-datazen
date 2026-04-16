@@ -1076,17 +1076,26 @@ function sirScrollToMatch(idx){
   if(!match) return;
   var scroller = document.getElementById('vs-scroll');
   var targetScrollTop = match.rowIdx * vsRowH;
+  // Set scroll position and re-render once
   scroller.scrollTop = targetScrollTop;
   vsRenderVisible(targetScrollTop);
+  // After render, find the cell and scroll it into view horizontally only
   setTimeout(function(){
-    var rows = document.querySelectorAll('#vs-tbody tr');
     var rowOffset = match.rowIdx - vsStart;
+    var rows = document.querySelectorAll('#vs-tbody tr');
     if(rowOffset >= 0 && rowOffset < rows.length){
       var cells = rows[rowOffset].querySelectorAll('td:not(.rn-col)');
       var colIdx = resultCols.indexOf(match.col);
-      if(cells[colIdx]) cells[colIdx].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      if(cells[colIdx]){
+        var cellLeft = cells[colIdx].offsetLeft;
+        var cellRight = cellLeft + cells[colIdx].offsetWidth;
+        var scrollLeft = scroller.scrollLeft;
+        var scrollRight = scrollLeft + scroller.clientWidth;
+        if(cellLeft < scrollLeft) scroller.scrollLeft = cellLeft - 10;
+        else if(cellRight > scrollRight) scroller.scrollLeft = cellRight - scroller.clientWidth + 10;
+      }
     }
-  }, 30);
+  }, 50);
 }
 
 function sirKeyNav(e){
