@@ -30,10 +30,12 @@ module.exports = function handleAuth(req, res, pool, log, getBody) {
 if (req.url === '/register' && req.method === 'POST') {
   getBody(req, async data => {
     const { name, username, email, password } = data;
+
     if (!name || !username || !email || !password) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ message: 'Missing fields' }));
     }
+
     try {
       // Check username first
       const usernameCheck = await pool.query(
@@ -44,6 +46,7 @@ if (req.url === '/register' && req.method === 'POST') {
         res.writeHead(409, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ message: 'Username already taken' }));
       }
+
       // Then check email
       const emailCheck = await pool.query(
         'SELECT * FROM users WHERE email=$1',
@@ -54,13 +57,16 @@ if (req.url === '/register' && req.method === 'POST') {
         return res.end(JSON.stringify({ message: 'Email already registered' }));
       }
 
+      // Insert new user
       await pool.query(
         'INSERT INTO users(name, username, email, password) VALUES($1,$2,$3,$4)',
         [name, username, email, password]
       );
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+
+      res.writeHead(201, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ message: 'Registered' }));
       log('OK', 'New user registered: ' + username);
+
     } catch (err) {
       console.error(err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
