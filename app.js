@@ -1077,7 +1077,7 @@ function sirKeyNav(e){
 /* ══════════ SIR STYLES (injected dynamically) ═════════════════ */
 (function(){
   var s = document.createElement('style');
-  s.textContent = 'td.sir-hl{background:#7c3aed33 !important;}td.sir-hl-cur{background:#7c3aed99 !important;outline:2px solid #a78bfa;}';
+  s.textContent = 'td.sir-hl{background:#fef08a !important;}td.sir-hl-cur{background:#fef08a !important;}';
   document.head.appendChild(s);
 })();
 
