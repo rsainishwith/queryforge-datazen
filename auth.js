@@ -43,8 +43,18 @@ module.exports = function handleAuth(req, res, pool, log, getBody) {
         );
 
         if (check.rows.length > 0) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ message: 'User exists' }));
+          // Check which one already exists
+          const existingUser = check.rows[0];
+          let message = 'User exists';
+          
+          if (existingUser.username === username) {
+            message = 'Username already taken';
+          } else if (existingUser.email === email) {
+            message = 'Email already registered';
+          }
+          
+          res.writeHead(409, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ message }));
         }
 
         await pool.query(
