@@ -292,17 +292,46 @@ function handleRegister() {
 }
 
 // ── FORGOT PASSWORD ───────────────────────────────────────────
+// ── FORGOT PASSWORD ───────────────────────────────────────────
 function handleForgot() {
   clearAllErrors();
 
   const email = document.getElementById('forgot-email').value.trim();
   if (!email) { showErr('err-forgot'); shake(); return; }
 
-  // Show success (no backend yet)
-  document.getElementById('forgot-fields').style.display = 'none';
-  document.getElementById('forgot-success').style.display = 'block';
+  // Prevent double-submit
+  const btn = document.querySelector('#form-forgot .btn-primary');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ Sending link…';
 
-  showToast('success', 'Reset link sent', 'Check inbox for ' + email);
+  // API CALL
+  fetch(SERVER + '/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.message.includes('sent')) {
+      // Show success
+      document.getElementById('forgot-fields').style.display = 'none';
+      document.getElementById('forgot-success').style.display = 'block';
+      showToast('success', 'Reset link sent', 'Check inbox for ' + email);
+    } else {
+      showErr('err-forgot');
+      shake();
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    showToast('error', 'Network error', 'Could not send reset link');
+    shake();
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.textContent = '→ Send Reset Link';
+  });
 }
 
 // ── Clock ─────────────────────────────────────────────────────
