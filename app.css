@@ -846,3 +846,8 @@ thead .rn-col{background:#1e293b !important;color:#6b7280;font-weight:600 !impor
   flex: 1;
   min-height: 0;
 }
+
+td.sir-hl, td.sir-hl-cur {
+  background: #fef08a !important;
+  outline: none !important;
+}
