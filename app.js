@@ -489,6 +489,7 @@ function renderTable(){
   document.getElementById('stime').textContent=elapsed+'s';
   document.getElementById('sir-input').value='';
   document.getElementById('sir-count').textContent='';
+  
   _sirMatches=[];_sirIdx=-1;
 
   if(!filtered.length){
@@ -592,7 +593,8 @@ function vsRenderVisible(scrollTop){
       var v=row[c];
       if(v===null||v===undefined||v==='')h+='<td class="null-cell">(null)</td>';
       //else h+='<td>'+esc(String(v))+'</td>';
-      else h+='<td class="'+(_sirMatches.length&&esc(String(v)).toLowerCase().includes(_sirLastQ||'')?'sir-hl':'')+'">'+esc(String(v))+'</td>';
+      //else h+='<td class="'+(_sirMatches.length&&esc(String(v)).toLowerCase().includes(_sirLastQ||'')?'sir-hl':'')+'">'+esc(String(v))+'</td>';
+      else { var sv=esc(String(v)); var isMatch=_sirLastQ&&String(v).toLowerCase().includes(_sirLastQ); var isCur=isMatch&&_sirMatches[_sirIdx]&&_sirMatches[_sirIdx].rowIdx===i&&_sirMatches[_sirIdx].col===c; h+='<td class="'+(isCur?'sir-hl-cur':isMatch?'sir-hl':'')+'">'+sv+'</td>'; }
     });
     h+='</tr>';
   }
@@ -1042,37 +1044,58 @@ function gtcScrollTo(colName){
 }
 
 /* ══════════ SEARCH IN RESULT ══════════════════════════════════ */
-var _sirMatches = [], _sirIdx = -1;
-var _sirLastQ = '';
+var _sirMatches = [], _sirIdx = -1, _sirLastQ = '';
+
 function sirSearch(q){
-  document.querySelectorAll('#rarea td.sir-hl').forEach(function(td){ td.classList.remove('sir-hl', 'sir-hl-cur'); });
-  _sirMatches = []; _sirIdx = -1;
+  _sirMatches = []; _sirIdx = -1; _sirLastQ = '';
   document.getElementById('sir-count').textContent = '';
-  if (!q.trim()) return;
+  if (!q.trim()){ vsRenderVisible(document.getElementById('vs-scroll').scrollTop); return; }
   var lq = q.toLowerCase();
   _sirLastQ = lq;
-  var cells = document.querySelectorAll('#rarea tbody td:not(.rn-col)');
-  cells.forEach(function(td){
-    if (td.textContent.toLowerCase().includes(lq)){ td.classList.add('sir-hl'); _sirMatches.push(td); }
+  var filtered = vsFiltered;
+  filtered.forEach(function(row, rowIdx){
+    resultCols.forEach(function(c){
+      var v = row[c];
+      if(v !== null && v !== undefined && v !== '' && String(v).toLowerCase().includes(lq)){
+        _sirMatches.push({ rowIdx: rowIdx, col: c });
+      }
+    });
   });
-  if (_sirMatches.length){
+  if(_sirMatches.length){
     _sirIdx = 0;
-    _sirMatches[0].classList.add('sir-hl-cur');
-    _sirMatches[0].scrollIntoView({ block: 'nearest', inline: 'nearest' });
     document.getElementById('sir-count').textContent = '1 / ' + _sirMatches.length;
+    sirScrollToMatch(0);
   } else {
     document.getElementById('sir-count').textContent = '0 results';
+    vsRenderVisible(document.getElementById('vs-scroll').scrollTop);
   }
 }
+
+function sirScrollToMatch(idx){
+  var match = _sirMatches[idx];
+  if(!match) return;
+  var scroller = document.getElementById('vs-scroll');
+  var targetScrollTop = match.rowIdx * vsRowH;
+  scroller.scrollTop = targetScrollTop;
+  vsRenderVisible(targetScrollTop);
+  setTimeout(function(){
+    var rows = document.querySelectorAll('#vs-tbody tr');
+    var rowOffset = match.rowIdx - vsStart;
+    if(rowOffset >= 0 && rowOffset < rows.length){
+      var cells = rows[rowOffset].querySelectorAll('td:not(.rn-col)');
+      var colIdx = resultCols.indexOf(match.col);
+      if(cells[colIdx]) cells[colIdx].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }, 30);
+}
+
 function sirKeyNav(e){
-  if (!_sirMatches.length) return;
-  if (e.key === 'Enter' || e.key === 'F3'){
+  if(!_sirMatches.length) return;
+  if(e.key === 'Enter' || e.key === 'F3'){
     e.preventDefault();
-    _sirMatches[_sirIdx].classList.remove('sir-hl-cur');
     _sirIdx = e.shiftKey ? (_sirIdx - 1 + _sirMatches.length) % _sirMatches.length : (_sirIdx + 1) % _sirMatches.length;
-    _sirMatches[_sirIdx].classList.add('sir-hl-cur');
-    _sirMatches[_sirIdx].scrollIntoView({ block: 'nearest', inline: 'nearest' });
     document.getElementById('sir-count').textContent = (_sirIdx + 1) + ' / ' + _sirMatches.length;
+    sirScrollToMatch(_sirIdx);
   }
 }
 
