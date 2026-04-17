@@ -572,6 +572,39 @@ function renderTable(){
   if(gtcOpen)buildGtcList(document.getElementById('gtc-search').value);
 }
 
+function vsRenderVisible(scrollTop){
+  var filtered=vsFiltered;
+  var total=filtered.length;
+  var containerH=document.getElementById('vs-scroll').clientHeight||400;
+  var visibleCount=Math.ceil(containerH/vsRowH)+vsBuffer*2;
+  var startIdx=Math.max(0,Math.floor(scrollTop/vsRowH)-vsBuffer);
+  var endIdx=Math.min(total,startIdx+visibleCount);
+  vsStart=startIdx;vsEnd=endIdx;
+  document.getElementById('vs-spacer-top').style.height=(startIdx*vsRowH)+'px';
+  document.getElementById('vs-spacer-bot').style.height=((total-endIdx)*vsRowH)+'px';
+  var h='';
+  for(var i=startIdx;i<endIdx;i++){
+    var row=filtered[i];
+    h+='<tr style="height:'+vsRowH+'px;"><td class="rn-col">'+(i+1)+'</td>';
+    resultCols.forEach(function(c){
+      var v=row[c];
+      var cellClass='';
+      
+      // Check if this cell matches search
+      if(_sirLastQ && v!==null && v!==undefined && v!=='' && String(v).toLowerCase().includes(_sirLastQ)){
+        // Check if this is the current match
+        var isCurrentMatch = _sirIdx >= 0 && _sirMatches[_sirIdx] && _sirMatches[_sirIdx].rowIdx === i && _sirMatches[_sirIdx].col === c;
+        cellClass = isCurrentMatch ? 'sir-hl-cur' : 'sir-hl';
+      }
+      
+      if(v===null||v===undefined||v==='')h+='<td class="null-cell '+cellClass+'">(null)</td>';
+      else h+='<td class="'+cellClass+'">'+esc(String(v))+'</td>';
+    });
+    h+='</tr>';
+  }
+  document.getElementById('vs-tbody').innerHTML=h;
+}
+
 /* ══════════ SORT ══════════════════════════════════════════════ */
 function clickSort(col){
   if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}
@@ -1016,8 +1049,7 @@ var _sirMatches = [], _sirIdx = -1, _sirLastQ = '';
 function sirSearch(q){
   _sirMatches = []; _sirIdx = -1; _sirLastQ = '';
   document.getElementById('sir-count').textContent = '';
-  //if (!q.trim()){ vsRenderVisible(document.getElementById('vs-scroll').scrollTop); return; }
-  if (!q.trim()){ _sirLastQ=''; return; }
+  if (!q.trim()){ _sirLastQ=''; vsRenderVisible(document.getElementById('vs-scroll').scrollTop); return; }
   var lq = q.toLowerCase();
   _sirLastQ = lq;
   var filtered = vsFiltered;
@@ -1033,6 +1065,7 @@ function sirSearch(q){
     _sirIdx = 0;
     document.getElementById('sir-count').textContent = '1 / ' + _sirMatches.length;
     sirScrollToMatch(0);
+    vsRenderVisible(document.getElementById('vs-scroll').scrollTop); // Refresh to show highlights
   } else {
     document.getElementById('sir-count').textContent = '0 results';
     vsRenderVisible(document.getElementById('vs-scroll').scrollTop);
@@ -1040,11 +1073,17 @@ function sirSearch(q){
 }
 
 function sirScrollToMatch(idx){
+  if(idx < 0 || idx >= _sirMatches.length) return;
   var match = _sirMatches[idx];
   if(!match) return;
   var scroller = document.getElementById('vs-scroll');
-  var targetScrollTop = Math.max(0, (match.rowIdx * vsRowH) - 100);
+  // Scroll to row, keeping it centered in view
+  var targetScrollTop = Math.max(0, (match.rowIdx * vsRowH) - (scroller.clientHeight / 2) + (vsRowH / 2));
   scroller.scrollTop = targetScrollTop;
+  // Force re-render to update highlights
+  setTimeout(function(){
+    vsRenderVisible(scroller.scrollTop);
+  }, 50);
 }
 
 function sirKeyNav(e){
@@ -1060,7 +1099,7 @@ function sirKeyNav(e){
 /* ══════════ SIR STYLES (injected dynamically) ═════════════════ */
 (function(){
   var s = document.createElement('style');
-  s.textContent = 'td.sir-hl{background:#fef08a !important;}td.sir-hl-cur{background:#fef08a !important;}';
+  s.textContent = 'td.sir-hl{background:#fffacd !important;color:#000 !important;}td.sir-hl-cur{background:#FFFF00 !important;color:#000 !important;outline:2px solid #ff8c00 !important;outline-offset:-2px !important;font-weight:bold !important;}';
   document.head.appendChild(s);
 })();
 
