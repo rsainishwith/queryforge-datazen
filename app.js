@@ -9,7 +9,6 @@ var resultData=[], resultCols=[];
 var bindVarHistory = {};
 var fontSize=13, running=false;
 var sortCol=null, sortAsc=true;
-var _sirScrolling=false;
 var colFilters={};
 
 /* ── Catalog State ───────────────────────────────────────────── */
@@ -1051,7 +1050,8 @@ var _sirMatches = [], _sirIdx = -1, _sirLastQ = '';
 function sirSearch(q){
   _sirMatches = []; _sirIdx = -1; _sirLastQ = '';
   document.getElementById('sir-count').textContent = '';
-  if (!q.trim()){ vsRenderVisible(document.getElementById('vs-scroll').scrollTop); return; }
+  //if (!q.trim()){ vsRenderVisible(document.getElementById('vs-scroll').scrollTop); return; }
+  if (!q.trim()){ _sirLastQ=''; return; }
   var lq = q.toLowerCase();
   _sirLastQ = lq;
   var filtered = vsFiltered;
