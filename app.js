@@ -538,7 +538,9 @@ document.getElementById('rarea').innerHTML=h;
 
 var scroller=document.getElementById('vs-scroll');
 var headerScroll=document.getElementById('vs-header-scroll');
+var _sirScrolling=false;
 scroller.addEventListener('scroll',function(){
+  if(_sirScrolling) return;
   vsOnScroll(scroller);
   headerScroll.scrollLeft=scroller.scrollLeft;
 });
@@ -1076,9 +1078,10 @@ function sirScrollToMatch(idx){
   if(!match) return;
   var scroller = document.getElementById('vs-scroll');
   var targetScrollTop = match.rowIdx * vsRowH;
-  // Set scroll position and re-render once
+  _sirScrolling = true;
   scroller.scrollTop = targetScrollTop;
   vsRenderVisible(targetScrollTop);
+  setTimeout(function(){ _sirScrolling = false; }, 100);
   // After render, find the cell and scroll it into view horizontally only
   setTimeout(function(){
     var rowOffset = match.rowIdx - vsStart;
