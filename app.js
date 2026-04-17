@@ -604,6 +604,7 @@ function vsRenderVisible(scrollTop){
 }
 
 function vsOnScroll(scroller){
+  if(_sirScrolling) return;
   vsRenderVisible(scroller.scrollTop);
 }
 
