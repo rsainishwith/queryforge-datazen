@@ -464,16 +464,8 @@ function _executeSQL(sql){
 function stopQuery(){running=false;setLoading(false);setStage('Stopped');setTimeout(function(){setStage('');},2000);}
 
 /* ── VIRTUAL SCROLL THROTTLE ────────────────────────────────── */
-var vsScrollTimer=null;
-var vsLastScrollTop=0;
-
 function vsOnScrollThrottled(scroller){
-  if(vsScrollTimer) clearTimeout(vsScrollTimer);
-  vsScrollTimer=setTimeout(function(){
-    vsRenderVisible(scroller.scrollTop);
-    vsLastScrollTop=scroller.scrollTop;
-    vsScrollTimer=null;
-  },50);
+  vsRenderVisible(scroller.scrollTop);
 }
 
 /* ══════════ TABLE RENDER ══════════════════════════════════════ */
@@ -486,6 +478,7 @@ function getFilteredData(){
     });
   });
 }
+
 /* ══════════ VIRTUAL SCROLL STATE ══════════════════════════════ */
 var vsFiltered=[], vsRowH=28, vsBuffer=20, vsStart=0, vsEnd=0, vsScrollTop=0;
 
