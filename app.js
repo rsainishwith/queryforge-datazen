@@ -532,7 +532,7 @@ resultCols.forEach(function(c){
     +'</th>';
 });
 h+='</tr></thead></table></div>';
-h+='<div id="vs-scroll" style="flex:1;overflow-y:auto;overflow-x:auto;">'
+h+='<div id="vs-scroll" style="flex:1;overflow-y:scroll;overflow-x:auto;height:0;">'
   +'<div id="vs-spacer-top" style="height:0px;"></div>'
   +'<table id="vs-body-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'
   +colgroup
@@ -599,6 +599,7 @@ function vsRenderVisible(scrollTop){
   vsStart=startIdx;vsEnd=endIdx;
   document.getElementById('vs-spacer-top').style.height=(startIdx*vsRowH)+'px';
   document.getElementById('vs-spacer-bot').style.height=((total-endIdx)*vsRowH)+'px';
+document.getElementById('vs-scroll').style.height=document.getElementById('vs-scroll').style.height;
   var h='';
   for(var i=startIdx;i<endIdx;i++){
     var row=filtered[i];
