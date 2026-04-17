@@ -538,10 +538,18 @@ document.getElementById('rarea').innerHTML=h;
 
 var scroller=document.getElementById('vs-scroll');
 var headerScroll=document.getElementById('vs-header-scroll');
-scroller.addEventListener('scroll',function(){
+
+// Remove old listener if exists
+if(scroller._scrollHandler){
+  scroller.removeEventListener('scroll',scroller._scrollHandler);
+}
+
+// Add new listener once
+scroller._scrollHandler=function(){
   vsOnScroll(scroller);
   headerScroll.scrollLeft=scroller.scrollLeft;
-});
+};
+scroller.addEventListener('scroll',scroller._scrollHandler);
 
 (function(){
   var startX,startW,th,colIdx;
