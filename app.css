@@ -842,9 +842,12 @@ thead .rn-col{background:#1e293b !important;color:#6b7280;font-weight:600 !impor
   overflow: hidden;
   min-height: 0;
 }
+
 #vs-scroll {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: auto;
 }
 
 td.sir-hl, td.sir-hl-cur {
