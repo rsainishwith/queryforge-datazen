@@ -463,6 +463,19 @@ function _executeSQL(sql){
 }
 function stopQuery(){running=false;setLoading(false);setStage('Stopped');setTimeout(function(){setStage('');},2000);}
 
+/* ── VIRTUAL SCROLL THROTTLE ────────────────────────────────── */
+var vsScrollTimer=null;
+var vsLastScrollTop=0;
+
+function vsOnScrollThrottled(scroller){
+  if(vsScrollTimer) clearTimeout(vsScrollTimer);
+  vsScrollTimer=setTimeout(function(){
+    vsRenderVisible(scroller.scrollTop);
+    vsLastScrollTop=scroller.scrollTop;
+    vsScrollTimer=null;
+  },50);
+}
+
 /* ══════════ TABLE RENDER ══════════════════════════════════════ */
 function getFilteredData(){
   return resultData.filter(function(row){
@@ -539,17 +552,17 @@ document.getElementById('rarea').innerHTML=h;
 var scroller=document.getElementById('vs-scroll');
 var headerScroll=document.getElementById('vs-header-scroll');
 
-// Remove old listener if exists
+// Remove old listener
 if(scroller._scrollHandler){
   scroller.removeEventListener('scroll',scroller._scrollHandler);
 }
 
-// Add new listener once
+// Add throttled listener
 scroller._scrollHandler=function(){
-  vsOnScroll(scroller);
+  vsOnScrollThrottled(scroller);
   headerScroll.scrollLeft=scroller.scrollLeft;
 };
-scroller.addEventListener('scroll',scroller._scrollHandler);
+scroller.addEventListener('scroll',scroller._scrollHandler,{passive:true});
 
 (function(){
   var startX,startW,th,colIdx;
