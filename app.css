@@ -851,3 +851,6 @@ td.sir-hl, td.sir-hl-cur {
   background: #fef08a !important;
   outline: none !important;
 }
+
+#vs-tbody tr { height: 32px; box-sizing: border-box; }
+#vs-tbody td { height: 32px; box-sizing: border-box; }
