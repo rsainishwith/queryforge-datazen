@@ -480,7 +480,7 @@ function getFilteredData(){
 }
 
 /* ══════════ VIRTUAL SCROLL STATE ══════════════════════════════ */
-var vsFiltered=[], vsRowH=28, vsBuffer=20, vsStart=0, vsEnd=0;
+var vsFiltered=[];
 
 function renderTable(){
   var filtered=getFilteredData();
@@ -509,15 +509,15 @@ function renderTable(){
     +resultCols.map(function(){return '<col style="width:'+COL_W+'px;">';}).join('')
     +'</colgroup>';
 
-  var h='<div id="vs-header-scroll" style="overflow-x:hidden;flex-shrink:0;">'
-    +'<table id="vs-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;">'
+  var h='<div style="width:100%;overflow-x:auto;overflow-y:auto;height:100%;">'
+    +'<table id="vs-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'
     +colgroup
-    +'<thead><tr><th class="rn-col" style="width:40px;">#</th>';
+    +'<thead><tr><th class="rn-col" style="width:40px;position:sticky;top:0;z-index:5;">#</th>';
   resultCols.forEach(function(c){
     var arrow=sortCol===c?(sortAsc?' ▲':' ▼'):'';
     var hasFilter=colFilters[c]!=null;
     var iconFill=hasFilter?'currentColor':'none';
-    h+='<th style="position:relative;">'
+    h+='<th style="position:sticky;top:0;z-index:5;">'
       +'<div class="th-inner">'
       +'<span class="th-label" onclick="clickSort(\''+escJ(c)+'\')" title="Sort by '+esc(c)+'">'+esc(c)+arrow+'</span>'
       +'<button class="th-filter-btn'+(hasFilter?' active':'')+'" '
@@ -530,23 +530,20 @@ function renderTable(){
       +'<div class="col-resizer" onmousedown="startResize(event)"></div>'
       +'</th>';
   });
-  h+='</tr></thead></table></div>';
-  h+='<div id="vs-scroll" style="flex:1;overflow-y:auto;overflow-x:auto;min-height:0;">'
-    +'<div id="vs-spacer-top"></div>'
-    +'<table id="vs-body-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'
-    +colgroup
-    +'<tbody id="vs-tbody"></tbody></table>'
-    +'<div id="vs-spacer-bot"></div>'
-    +'</div>';
+  h+='</tr></thead><tbody id="vs-tbody">';
+  for(var i=0;i<filtered.length;i++){
+    var row=filtered[i];
+    h+='<tr><td class="rn-col">'+(i+1)+'</td>';
+    resultCols.forEach(function(c){
+      var v=row[c];
+      if(v===null||v===undefined||v==='')h+='<td class="null-cell">(null)</td>';
+      else h+='<td>'+esc(String(v))+'</td>';
+    });
+    h+='</tr>';
+  }
+  h+='</tbody></table></div>';
 
   document.getElementById('rarea').innerHTML=h;
-
-  var scroller=document.getElementById('vs-scroll');
-  var headerScroll=document.getElementById('vs-header-scroll');
-  scroller.addEventListener('scroll',function(){
-    vsRenderVisible(scroller.scrollTop);
-    headerScroll.scrollLeft=scroller.scrollLeft;
-  },{passive:true});
 
   (function(){
     var startX,startW,th,colIdx;
@@ -560,14 +557,11 @@ function renderTable(){
     };
     function onMove(e){
       var w=Math.max(60,startW+(e.clientX-startX));
-      var cols1=document.querySelectorAll('#vs-table colgroup col');
-      var cols2=document.querySelectorAll('#vs-body-table colgroup col');
-      if(cols1[colIdx])cols1[colIdx].style.width=w+'px';
-      if(cols2[colIdx])cols2[colIdx].style.width=w+'px';
+      var cols=document.querySelectorAll('#vs-table colgroup col');
+      if(cols[colIdx])cols[colIdx].style.width=w+'px';
       var total=0;
-      cols1.forEach(function(c){total+=parseInt(c.style.width)||COL_W;});
+      cols.forEach(function(c){total+=parseInt(c.style.width)||COL_W;});
       document.getElementById('vs-table').style.width=total+'px';
-      document.getElementById('vs-body-table').style.width=total+'px';
     }
     function onUp(){
       document.removeEventListener('mousemove',onMove);
@@ -575,36 +569,7 @@ function renderTable(){
     }
   })();
 
-  vsRenderVisible(0);
   if(gtcOpen)buildGtcList(document.getElementById('gtc-search').value);
-}
-
-function vsRenderVisible(scrollTop){
-  var filtered=vsFiltered;
-  var total=filtered.length;
-  var containerH=document.getElementById('vs-scroll').clientHeight||400;
-  var visibleCount=Math.ceil(containerH/vsRowH)+vsBuffer*2;
-  var startIdx=Math.max(0,Math.floor(scrollTop/vsRowH)-vsBuffer);
-  var endIdx=Math.min(total,startIdx+visibleCount);
-  vsStart=startIdx;vsEnd=endIdx;
-  document.getElementById('vs-spacer-top').style.height=(startIdx*vsRowH)+'px';
-  document.getElementById('vs-spacer-bot').style.height=((total-endIdx)*vsRowH)+'px';
-  var h='';
-  for(var i=startIdx;i<endIdx;i++){
-    var row=filtered[i];
-    h+='<tr style="height:'+vsRowH+'px;"><td class="rn-col">'+(i+1)+'</td>';
-    resultCols.forEach(function(c){
-      var v=row[c];
-      if(v===null||v===undefined||v==='')h+='<td class="null-cell">(null)</td>';
-      else h+='<td>'+esc(String(v))+'</td>';
-    });
-    h+='</tr>';
-  }
-  document.getElementById('vs-tbody').innerHTML=h;
-}
-
-function vsOnScroll(scroller){
-  vsRenderVisible(scroller.scrollTop);
 }
 
 /* ══════════ SORT ══════════════════════════════════════════════ */
