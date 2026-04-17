@@ -595,7 +595,8 @@ function vsRenderVisible(scrollTop){
       if(v===null||v===undefined||v==='')h+='<td class="null-cell">(null)</td>';
       //else h+='<td>'+esc(String(v))+'</td>';
       //else h+='<td class="'+(_sirMatches.length&&esc(String(v)).toLowerCase().includes(_sirLastQ||'')?'sir-hl':'')+'">'+esc(String(v))+'</td>';
-      else { var sv=esc(String(v)); var isMatch=_sirLastQ&&String(v).toLowerCase().includes(_sirLastQ); var isCur=isMatch&&_sirMatches[_sirIdx]&&_sirMatches[_sirIdx].rowIdx===i&&_sirMatches[_sirIdx].col===c; h+='<td class="'+(isCur?'sir-hl-cur':isMatch?'sir-hl':'')+'">'+sv+'</td>'; }
+        else h+='<td>'+esc(String(v))+'</td>';
+      //else { var sv=esc(String(v)); var isMatch=_sirLastQ&&String(v).toLowerCase().includes(_sirLastQ); var isCur=isMatch&&_sirMatches[_sirIdx]&&_sirMatches[_sirIdx].rowIdx===i&&_sirMatches[_sirIdx].col===c; h+='<td class="'+(isCur?'sir-hl-cur':isMatch?'sir-hl':'')+'">'+sv+'</td>'; }
     });
     h+='</tr>';
   }
@@ -1076,28 +1077,8 @@ function sirScrollToMatch(idx){
   var match = _sirMatches[idx];
   if(!match) return;
   var scroller = document.getElementById('vs-scroll');
-  var targetScrollTop = match.rowIdx * vsRowH;
-  _sirScrolling = true;
+  var targetScrollTop = Math.max(0, (match.rowIdx * vsRowH) - 100);
   scroller.scrollTop = targetScrollTop;
-  vsRenderVisible(targetScrollTop);
-  setTimeout(function(){ _sirScrolling = false; }, 100);
-  // After render, find the cell and scroll it into view horizontally only
-  setTimeout(function(){
-    var rowOffset = match.rowIdx - vsStart;
-    var rows = document.querySelectorAll('#vs-tbody tr');
-    if(rowOffset >= 0 && rowOffset < rows.length){
-      var cells = rows[rowOffset].querySelectorAll('td:not(.rn-col)');
-      var colIdx = resultCols.indexOf(match.col);
-      if(cells[colIdx]){
-        var cellLeft = cells[colIdx].offsetLeft;
-        var cellRight = cellLeft + cells[colIdx].offsetWidth;
-        var scrollLeft = scroller.scrollLeft;
-        var scrollRight = scrollLeft + scroller.clientWidth;
-        if(cellLeft < scrollLeft) scroller.scrollLeft = cellLeft - 10;
-        else if(cellRight > scrollRight) scroller.scrollLeft = cellRight - scroller.clientWidth + 10;
-      }
-    }
-  }, 50);
 }
 
 function sirKeyNav(e){
