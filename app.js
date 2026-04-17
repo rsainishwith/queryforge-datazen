@@ -9,6 +9,7 @@ var resultData=[], resultCols=[];
 var bindVarHistory = {};
 var fontSize=13, running=false;
 var sortCol=null, sortAsc=true;
+var _sirScrolling=false;
 var colFilters={};
 
 /* ── Catalog State ───────────────────────────────────────────── */
@@ -538,7 +539,6 @@ document.getElementById('rarea').innerHTML=h;
 
 var scroller=document.getElementById('vs-scroll');
 var headerScroll=document.getElementById('vs-header-scroll');
-var _sirScrolling=false;
 scroller.addEventListener('scroll',function(){
   if(_sirScrolling) return;
   vsOnScroll(scroller);
