@@ -848,7 +848,14 @@ thead .rn-col{background:#1e293b !important;color:#6b7280;font-weight:600 !impor
   min-height: 0;
 }
 
-td.sir-hl, td.sir-hl-cur {
-  background: #fef08a !important;
+td.sir-hl {
+  background: #fffacd !important; /* Light yellow for other matches */
   outline: none !important;
 }
+ 
+td.sir-hl-cur {
+  background: #FFFF00 !important; /* Bright yellow for current match */
+  outline: 2px solid #ff8c00 !important; /* Orange border for emphasis */
+  outline-offset: -2px !important;
+}
+ 
