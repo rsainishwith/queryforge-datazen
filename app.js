@@ -465,7 +465,9 @@ function stopQuery(){running=false;setLoading(false);setStage('Stopped');setTime
 
 /* ── VIRTUAL SCROLL THROTTLE ────────────────────────────────── */
 function vsOnScrollThrottled(scroller){
-  vsRenderVisible(scroller.scrollTop);
+  requestAnimationFrame(function(){
+    vsRenderVisible(scroller.scrollTop);
+  });
 }
 
 /* ══════════ TABLE RENDER ══════════════════════════════════════ */
@@ -480,7 +482,7 @@ function getFilteredData(){
 }
 
 /* ══════════ VIRTUAL SCROLL STATE ══════════════════════════════ */
-var vsFiltered=[], vsRowH=28, vsBuffer=20, vsStart=0, vsEnd=0, vsScrollTop=0;
+var vsFiltered=[], vsRowH=28, vsBuffer=10, vsStart=0, vsEnd=0, vsScrollTop=0;
 
 function renderTable(){
   var filtered=getFilteredData();
