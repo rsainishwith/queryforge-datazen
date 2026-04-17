@@ -464,10 +464,8 @@ function _executeSQL(sql){
 function stopQuery(){running=false;setLoading(false);setStage('Stopped');setTimeout(function(){setStage('');},2000);}
 
 /* ── VIRTUAL SCROLL THROTTLE ────────────────────────────────── */
-function vsOnScrollThrottled(scroller){
-  requestAnimationFrame(function(){
-    vsRenderVisible(scroller.scrollTop);
-  });
+function vsOnScroll(scroller){
+  vsRenderVisible(scroller.scrollTop);
 }
 
 /* ══════════ TABLE RENDER ══════════════════════════════════════ */
@@ -482,7 +480,7 @@ function getFilteredData(){
 }
 
 /* ══════════ VIRTUAL SCROLL STATE ══════════════════════════════ */
-var vsFiltered=[], vsRowH=28, vsBuffer=10, vsStart=0, vsEnd=0, vsScrollTop=0;
+var vsFiltered=[], vsRowH=28, vsBuffer=20, vsStart=0, vsEnd=0;
 
 function renderTable(){
   var filtered=getFilteredData();
@@ -497,8 +495,7 @@ function renderTable(){
   document.getElementById('stime').textContent=elapsed+'s';
   document.getElementById('sir-input').value='';
   document.getElementById('sir-count').textContent='';
-  
-  _sirMatches=[];_sirIdx=-1;
+  _sirMatches=[];_sirIdx=-1;_sirLastQ='';
 
   if(!filtered.length){
     document.getElementById('rarea').innerHTML='<div class="nodata">Query returned no rows</div>';
@@ -506,88 +503,79 @@ function renderTable(){
     return;
   }
 
-var COL_W = 160;
-var totalW = 40 + resultCols.length * COL_W;
-var colgroup = '<colgroup><col style="width:40px;">'
-  + resultCols.map(function(){ return '<col style="width:'+COL_W+'px;">'; }).join('')
-  + '</colgroup>';
+  var COL_W=160;
+  var totalW=40+resultCols.length*COL_W;
+  var colgroup='<colgroup><col style="width:40px;">'
+    +resultCols.map(function(){return '<col style="width:'+COL_W+'px;">';}).join('')
+    +'</colgroup>';
 
-var h='<div id="vs-header-scroll" style="overflow-x:hidden;">'
-  +'<table id="vs-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;">'
-  +colgroup
-  +'<thead><tr><th class="rn-col" style="width:40px;">#</th>';
-resultCols.forEach(function(c){
-  var arrow=sortCol===c?(sortAsc?' ▲':' ▼'):'';
-  var hasFilter=colFilters[c]!=null;
-  var iconFill=hasFilter?'currentColor':'none';
-  h+='<th style="position:relative;">'
-    +'<div class="th-inner">'
-    +'<span class="th-label" onclick="clickSort(\''+escJ(c)+'\')" title="Sort by '+esc(c)+'">'+esc(c)+arrow+'</span>'
-    +'<button class="th-filter-btn'+(hasFilter?' active':'')+'" '
-    +'onclick="fpOpen(event,\''+escJ(c)+'\')" title="Filter">'
-    +'<svg width="11" height="11" viewBox="0 0 24 24" fill="'+iconFill+'" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
-    +'<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'
-    +'</svg>'
-    +'</button>'
-    +'</div>'
-    +'<div class="col-resizer" onmousedown="startResize(event)"></div>'
-    +'</th>';
-});
-h+='</tr></thead></table></div>';
-h+='<div id="vs-scroll" style="flex:1;overflow-y:scroll;overflow-x:auto;height:0;">'
-  +'<div id="vs-spacer-top" style="height:0px;"></div>'
-  +'<table id="vs-body-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'
-  +colgroup
-  +'<tbody id="vs-tbody"></tbody></table>'
-  +'<div id="vs-spacer-bot" style="height:0px;"></div>'
-  +'</div>';
+  var h='<div id="vs-header-scroll" style="overflow-x:hidden;flex-shrink:0;">'
+    +'<table id="vs-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;">'
+    +colgroup
+    +'<thead><tr><th class="rn-col" style="width:40px;">#</th>';
+  resultCols.forEach(function(c){
+    var arrow=sortCol===c?(sortAsc?' ▲':' ▼'):'';
+    var hasFilter=colFilters[c]!=null;
+    var iconFill=hasFilter?'currentColor':'none';
+    h+='<th style="position:relative;">'
+      +'<div class="th-inner">'
+      +'<span class="th-label" onclick="clickSort(\''+escJ(c)+'\')" title="Sort by '+esc(c)+'">'+esc(c)+arrow+'</span>'
+      +'<button class="th-filter-btn'+(hasFilter?' active':'')+'" '
+      +'onclick="fpOpen(event,\''+escJ(c)+'\')" title="Filter">'
+      +'<svg width="11" height="11" viewBox="0 0 24 24" fill="'+iconFill+'" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
+      +'<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'
+      +'</svg>'
+      +'</button>'
+      +'</div>'
+      +'<div class="col-resizer" onmousedown="startResize(event)"></div>'
+      +'</th>';
+  });
+  h+='</tr></thead></table></div>';
+  h+='<div id="vs-scroll" style="flex:1;overflow-y:auto;overflow-x:auto;min-height:0;">'
+    +'<div id="vs-spacer-top"></div>'
+    +'<table id="vs-body-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'
+    +colgroup
+    +'<tbody id="vs-tbody"></tbody></table>'
+    +'<div id="vs-spacer-bot"></div>'
+    +'</div>';
 
-document.getElementById('rarea').innerHTML=h;
+  document.getElementById('rarea').innerHTML=h;
 
-var scroller=document.getElementById('vs-scroll');
-var headerScroll=document.getElementById('vs-header-scroll');
+  var scroller=document.getElementById('vs-scroll');
+  var headerScroll=document.getElementById('vs-header-scroll');
+  scroller.addEventListener('scroll',function(){
+    vsRenderVisible(scroller.scrollTop);
+    headerScroll.scrollLeft=scroller.scrollLeft;
+  },{passive:true});
 
-// Remove old listener
-if(scroller._scrollHandler){
-  scroller.removeEventListener('scroll',scroller._scrollHandler);
-}
+  (function(){
+    var startX,startW,th,colIdx;
+    window.startResize=function(e){
+      th=e.target.closest('th');
+      colIdx=Array.from(th.parentElement.children).indexOf(th);
+      startX=e.clientX;startW=th.offsetWidth;
+      document.addEventListener('mousemove',onMove);
+      document.addEventListener('mouseup',onUp);
+      e.preventDefault();
+    };
+    function onMove(e){
+      var w=Math.max(60,startW+(e.clientX-startX));
+      var cols1=document.querySelectorAll('#vs-table colgroup col');
+      var cols2=document.querySelectorAll('#vs-body-table colgroup col');
+      if(cols1[colIdx])cols1[colIdx].style.width=w+'px';
+      if(cols2[colIdx])cols2[colIdx].style.width=w+'px';
+      var total=0;
+      cols1.forEach(function(c){total+=parseInt(c.style.width)||COL_W;});
+      document.getElementById('vs-table').style.width=total+'px';
+      document.getElementById('vs-body-table').style.width=total+'px';
+    }
+    function onUp(){
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+    }
+  })();
 
-// Add throttled listener
-scroller._scrollHandler=function(){
-  vsOnScrollThrottled(scroller);
-  headerScroll.scrollLeft=scroller.scrollLeft;
-};
-scroller.addEventListener('scroll',scroller._scrollHandler,{passive:true});
-
-(function(){
-  var startX,startW,th,colIdx;
-  window.startResize=function(e){
-    th=e.target.closest('th');
-    colIdx=Array.from(th.parentElement.children).indexOf(th);
-    startX=e.clientX;
-    startW=th.offsetWidth;
-    document.addEventListener('mousemove',onMove);
-    document.addEventListener('mouseup',onUp);
-    e.preventDefault();
-  };
-  function onMove(e){
-    var w=Math.max(60,startW+(e.clientX-startX));
-    var cols1=document.querySelectorAll('#vs-table colgroup col');
-    var cols2=document.querySelectorAll('#vs-body-table colgroup col');
-    if(cols1[colIdx])cols1[colIdx].style.width=w+'px';
-    if(cols2[colIdx])cols2[colIdx].style.width=w+'px';
-    var total=0;
-    cols1.forEach(function(c){total+=parseInt(c.style.width)||COL_W;});
-    document.getElementById('vs-table').style.width=total+'px';
-    document.getElementById('vs-body-table').style.width=total+'px';
-  }
-  function onUp(){
-    document.removeEventListener('mousemove',onMove);
-    document.removeEventListener('mouseup',onUp);
-  }
-})();
-
-  setTimeout(function(){ vsRenderVisible(0); }, 0);
+  vsRenderVisible(0);
   if(gtcOpen)buildGtcList(document.getElementById('gtc-search').value);
 }
 
@@ -601,7 +589,6 @@ function vsRenderVisible(scrollTop){
   vsStart=startIdx;vsEnd=endIdx;
   document.getElementById('vs-spacer-top').style.height=(startIdx*vsRowH)+'px';
   document.getElementById('vs-spacer-bot').style.height=((total-endIdx)*vsRowH)+'px';
-document.getElementById('vs-scroll').style.height=document.getElementById('vs-scroll').style.height;
   var h='';
   for(var i=startIdx;i<endIdx;i++){
     var row=filtered[i];
@@ -609,10 +596,7 @@ document.getElementById('vs-scroll').style.height=document.getElementById('vs-sc
     resultCols.forEach(function(c){
       var v=row[c];
       if(v===null||v===undefined||v==='')h+='<td class="null-cell">(null)</td>';
-      //else h+='<td>'+esc(String(v))+'</td>';
-      //else h+='<td class="'+(_sirMatches.length&&esc(String(v)).toLowerCase().includes(_sirLastQ||'')?'sir-hl':'')+'">'+esc(String(v))+'</td>';
-        else h+='<td>'+esc(String(v))+'</td>';
-      //else { var sv=esc(String(v)); var isMatch=_sirLastQ&&String(v).toLowerCase().includes(_sirLastQ); var isCur=isMatch&&_sirMatches[_sirIdx]&&_sirMatches[_sirIdx].rowIdx===i&&_sirMatches[_sirIdx].col===c; h+='<td class="'+(isCur?'sir-hl-cur':isMatch?'sir-hl':'')+'">'+sv+'</td>'; }
+      else h+='<td>'+esc(String(v))+'</td>';
     });
     h+='</tr>';
   }
