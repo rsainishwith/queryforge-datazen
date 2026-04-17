@@ -540,7 +540,6 @@ document.getElementById('rarea').innerHTML=h;
 var scroller=document.getElementById('vs-scroll');
 var headerScroll=document.getElementById('vs-header-scroll');
 scroller.addEventListener('scroll',function(){
-  if(_sirScrolling) return;
   vsOnScroll(scroller);
   headerScroll.scrollLeft=scroller.scrollLeft;
 });
@@ -604,7 +603,6 @@ function vsRenderVisible(scrollTop){
 }
 
 function vsOnScroll(scroller){
-  if(_sirScrolling) return;
   vsRenderVisible(scroller.scrollTop);
 }
 
