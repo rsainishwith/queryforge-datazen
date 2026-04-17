@@ -592,7 +592,7 @@ scroller.addEventListener('scroll',scroller._scrollHandler,{passive:true});
   }
 })();
 
-  vsRenderVisible(0);
+  setTimeout(function(){ vsRenderVisible(0); }, 0);
   if(gtcOpen)buildGtcList(document.getElementById('gtc-search').value);
 }
 
