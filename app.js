@@ -805,175 +805,86 @@ function formatSQL(){
   var comments=[];
   
   // Preserve comments
-  v=v.replace(/--[^\n]*/g,function(m){comments.push(m);return '\x00COMMENT'+(comments.length-1)+'\x00';});
+  v=v.replace(/--[^\n]*/g,function(m){comments.push(m);return '\x00CM'+(comments.length-1)+'\x00';});
   
-  // Preserve string literals
-  v=v.replace(/'(?:[^'\\]|''|\\.)*'/g,function(m){literals.push(m);return '\x00STR'+(literals.length-1)+'\x00';});
+  // Preserve string literals  
+  v=v.replace(/'(?:[^'\\]|''|\\.)*'/g,function(m){literals.push(m);return '\x00LT'+(literals.length-1)+'\x00';});
   
-  // Normalize whitespace
+  // Normalize whitespace but keep some structure
   v=v.replace(/\s+/g,' ').trim();
   
-  // Split into logical parts
-  v=v.replace(/\b(SELECT|FROM|WHERE|GROUP\s+BY|ORDER\s+BY|HAVING|UNION|INTERSECT|MINUS)\b/gi,'\n$1');
+  // Add newlines before major keywords
+  v=v.replace(/\bSELECT\b/gi,'\nSELECT');
+  v=v.replace(/\bFROM\b/gi,'\nFROM');
+  v=v.replace(/\bWHERE\b/gi,'\nWHERE');
+  v=v.replace(/\bGROUP BY\b/gi,'\nGROUP BY');
+  v=v.replace(/\bORDER BY\b/gi,'\nORDER BY');
+  v=v.replace(/\bHAVING\b/gi,'\nHAVING');
+  v=v.replace(/\bUNION\b/gi,'\nUNION');
+  
+  // Add newline before AND/OR in WHERE
+  v=v.replace(/\s(AND|OR)\s/gi,'\n$1 ');
   
   var lines=v.split('\n');
-  var out=[];
-  var i=0;
+  var result=[];
+  var currentClause='';
   
-  while(i<lines.length){
+  for(var i=0;i<lines.length;i++){
     var line=lines[i].trim();
-    if(!line){i++;continue;}
+    if(!line) continue;
     
-    // SELECT clause
-    if(/^SELECT\b/i.test(line)){
-      out.push('SELECT');
-      i++;
-      
-      // Collect all columns until FROM
-      var cols=[];
-      while(i<lines.length){
-        var nextLine=lines[i].trim();
-        if(/^FROM\b/i.test(nextLine)) break;
-        if(/^WHERE\b/i.test(nextLine)) break;
-        if(!nextLine){i++;continue;}
-        
-        // Split by comma
-        var parts=nextLine.split(',');
-        parts.forEach(function(p,idx){
-          var trimmed=p.trim();
-          if(trimmed){
-            cols.push(trimmed);
-          }
-        });
-        i++;
-      }
-      
-      // Output columns with proper indentation
-      cols.forEach(function(col,idx){
-        out.push('    '+col+(idx<cols.length-1?',':''));
-      });
-      continue;
+    var upperLine=line.toUpperCase();
+    var indent='';
+    
+    // Detect current clause
+    if(upperLine.match(/^SELECT/)) currentClause='SELECT';
+    else if(upperLine.match(/^FROM/)) currentClause='FROM';
+    else if(upperLine.match(/^WHERE/)) currentClause='WHERE';
+    else if(upperLine.match(/^GROUP BY/)) currentClause='GROUPBY';
+    else if(upperLine.match(/^ORDER BY/)) currentClause='ORDERBY';
+    else if(upperLine.match(/^HAVING/)) currentClause='HAVING';
+    
+    // Set indentation based on clause
+    if(upperLine.match(/^(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|UNION)/)){
+      indent='';
+      result.push(upperLine.split(/\s+/)[0].toUpperCase() + (upperLine.length > 10 ? ' ' + upperLine.substring(upperLine.indexOf(' ')+1) : ''));
     }
-    
-    // FROM clause
-    if(/^FROM\b/i.test(line)){
-      out.push('FROM');
-      i++;
-      
-      var tables=[];
-      while(i<lines.length){
-        var nextLine=lines[i].trim();
-        if(/^WHERE\b/i.test(nextLine)) break;
-        if(/^GROUP\b/i.test(nextLine)) break;
-        if(/^ORDER\b/i.test(nextLine)) break;
-        if(!nextLine){i++;continue;}
-        
-        // Collect table lines
-        tables.push(nextLine);
-        i++;
-      }
-      
-      // Process tables - split by comma but preserve multi-line TABLE()
-      var allTables=[];
-      var currentTable='';
-      tables.forEach(function(t){
-        if(t.indexOf(',')>-1){
-          var parts=t.split(',');
-          parts.forEach(function(p,idx){
-            var trimmed=p.trim();
-            if(trimmed){
-              if(idx<parts.length-1){
-                allTables.push(trimmed);
-              } else {
-                currentTable=trimmed;
-              }
-            }
-          });
-        } else {
-          currentTable+=(currentTable?' ':'') + t;
-        }
-      });
-      if(currentTable) allTables.push(currentTable);
-      
-      // Output tables
-      allTables.forEach(function(tbl,idx){
-        out.push('    '+tbl+(idx<allTables.length-1?',':''));
-      });
-      continue;
+    else if(upperLine.match(/^(AND|OR)/)){
+      indent='    AND ';
+      var rest=line.substring(line.toUpperCase().indexOf('AND')+3).trim();
+      if(rest.toUpperCase().startsWith('OR')) rest=rest.substring(2).trim();
+      result.push(indent+rest);
     }
-    
-    // WHERE clause
-    if(/^WHERE\b/i.test(line)){
-      out.push('WHERE');
-      i++;
-      
-      var conditions=[];
-      while(i<lines.length){
-        var nextLine=lines[i].trim();
-        if(/^GROUP\b/i.test(nextLine)) break;
-        if(/^ORDER\b/i.test(nextLine)) break;
-        if(!nextLine){i++;continue;}
-        
-        conditions.push(nextLine);
-        i++;
+    else {
+      // Content under a clause
+      if(currentClause==='SELECT' || currentClause==='FROM'){
+        indent='    ';
+        result.push(indent+line);
       }
-      
-      // Output conditions with AND on same line
-      conditions.forEach(function(cond){
-        if(/^AND\b/i.test(cond)){
-          out.push('    AND');
-          out.push('        '+cond.substring(3).trim());
-        } else {
-          out.push('        '+cond);
-        }
-      });
-      continue;
-    }
-    
-    // GROUP BY / ORDER BY / HAVING
-    if(/^(GROUP BY|ORDER BY|HAVING)\b/i.test(line)){
-      var keyword=line.match(/^(\w+\s+\w+|\w+)/i)[0].toUpperCase();
-      out.push(keyword);
-      i++;
-      
-      var items=[];
-      while(i<lines.length){
-        var nextLine=lines[i].trim();
-        if(/^(GROUP|ORDER|WHERE|SELECT|FROM)\b/i.test(nextLine)) break;
-        if(!nextLine){i++;continue;}
-        
-        var parts=nextLine.split(',');
-        parts.forEach(function(p){
-          var trimmed=p.trim();
-          if(trimmed) items.push(trimmed);
-        });
-        i++;
+      else if(currentClause==='WHERE'){
+        indent='        ';
+        result.push(indent+line);
       }
-      
-      items.forEach(function(item,idx){
-        out.push('    '+item+(idx<items.length-1?',':''));
-      });
-      continue;
+      else {
+        result.push('    '+line);
+      }
     }
-    
-    i++;
   }
   
-  var result=out.join('\n');
+  v=result.join('\n');
   
   // Restore comments
-  result=result.replace(/\x00COMMENT(\d+)\x00/g,function(_,i){return comments[parseInt(i)];});
+  v=v.replace(/\x00CM(\d+)\x00/g,function(_,i){return comments[parseInt(i)];});
   
-  // Restore string literals
-  result=result.replace(/\x00STR(\d+)\x00/g,function(_,i){return literals[parseInt(i)];});
+  // Restore literals
+  v=v.replace(/\x00LT(\d+)\x00/g,function(_,i){return literals[parseInt(i)];});
   
-  result=result.replace(/^\n+/,'').replace(/\n{3,}/g,'\n\n').trim();
+  v=v.replace(/^\n+/,'').replace(/\n{3,}/g,'\n\n').trim();
   
-  ta.value=result;
+  ta.value=v;
   doHL();
   doLN();
 }
-
 function changeFontSize(d){fontSize=Math.max(10,Math.min(20,fontSize+d));['sqled','hl','lnums'].forEach(function(id){document.getElementById(id).style.fontSize=fontSize+'px';});}
 function findInSQL(){var q=prompt('Find in SQL:');if(!q)return;var ta=document.getElementById('sqled'),idx=ta.value.toLowerCase().indexOf(q.toLowerCase());if(idx>-1){ta.focus();ta.setSelectionRange(idx,idx+q.length);}else alert('"'+q+'" not found.');}
 
