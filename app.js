@@ -431,7 +431,7 @@ function _executeSQL(sql){
           try{
             var p=parseCSVResponse(xml);
             if(p.error){showErr(p.error);resolve();return;}
-            setStage('Rendering '+p.rows.length+' rows…');
+            //setStage('Rendering '+p.rows.length+' rows…');
             setTimeout(function(){
               var rows=(limit===Infinity)?p.rows:p.rows.slice(0,limit);
               var cols=p.cols;
