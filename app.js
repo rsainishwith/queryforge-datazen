@@ -802,69 +802,67 @@ function clearEditor(){document.getElementById('sqled').value='';doHL();doLN();}
 function formatSQL(){
   var ta=document.getElementById('sqled'), v=ta.value;
   var literals=[];
+  
+  // Preserve string literals
   v=v.replace(/'(?:[^'\\]|''|\\.)*'/g,function(m){literals.push(m);return '\x00STR'+(literals.length-1)+'\x00';});
+  
+  // Normalize whitespace
   v=v.replace(/\s+/g,' ').trim();
-  var lineBreakKws=[
-    'CROSS JOIN','NATURAL JOIN','LEFT OUTER JOIN','RIGHT OUTER JOIN','FULL OUTER JOIN',
-    'LEFT JOIN','RIGHT JOIN','INNER JOIN','FULL JOIN','JOIN',
-    'ORDER BY','GROUP BY','UNION ALL','UNION','INTERSECT','MINUS',
-    'SELECT','FROM','WHERE','HAVING','CONNECT BY','START WITH',
-    'PIVOT','UNPIVOT','MERGE INTO','WHEN MATCHED','WHEN NOT MATCHED'
-  ];
-  lineBreakKws.forEach(function(k){
-    var re=new RegExp('(?<![\\w(])('+k+')(?![\\w])', 'gi');
-    v=v.replace(re, function(_,m){ return '\n'+m.toUpperCase(); });
-  });
-  v=v.replace(/(?<=[\w\x00)])\s+(AND|OR)\s+(?=[\w\x00('])/gi, function(_,kw){ return '\n  '+kw.toUpperCase()+' '; });
-  (function(){
-    function splitTopLevel(str){
-      var parts=[], cur='', d=0;
-      for(var i=0;i<str.length;i++){
-        var c=str[i];
-        if(c==='(') d++;if(c===')') d--;
-        if(c===',' && d===0){ parts.push(cur.trim()); cur=''; }
-        else cur+=c;
-      }
-      if(cur.trim()) parts.push(cur.trim());
-      return parts;
+  
+  // Add line breaks before keywords
+  v=v.replace(/\b(SELECT|FROM|WHERE|GROUP\s+BY|HAVING|ORDER\s+BY|UNION|UNION\s+ALL|INTERSECT|MINUS)\b/gi, '\n$1');
+  v=v.replace(/\b(JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|FULL\s+JOIN|LEFT\s+OUTER\s+JOIN|RIGHT\s+OUTER\s+JOIN|CROSS\s+JOIN|ON)\b/gi, '\n$1');
+  v=v.replace(/\b(AND|OR)\b/gi, '\n$1');
+  v=v.replace(/\b(CASE|WHEN|THEN|ELSE|END)\b/gi, '\n  $1');
+  
+  // Split and format
+  var lines=v.split('\n');
+  var out=[];
+  
+  lines.forEach(function(line){
+    var trimmed=line.trim();
+    if(!trimmed) return;
+    
+    var lower=trimmed.toLowerCase();
+    var indent='';
+    
+    // Main clauses - no indent
+    if(/^(select|from|where|group by|having|order by|union|union all|intersect|minus)/.test(lower)){
+      indent='';
     }
-    var lines=v.split('\n'), out=[];
-    var clause=null;
-    lines.forEach(function(line){
-      var trimmed=line.trim();
-      if(/^SELECT\b/i.test(trimmed)) clause='select';
-      else if(/^FROM\b/i.test(trimmed)) clause='from';
-      else if(/^(WHERE|JOIN|LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|ORDER|GROUP|HAVING|UNION|INTERSECT|MINUS|CONNECT|START|PIVOT|MERGE)\b/i.test(trimmed)) clause=null;
-      if(clause==='select'){
-        var kwMatch=trimmed.match(/^(SELECT\s+(?:DISTINCT\s+|ALL\s+)?)/i);
-        var prefix=kwMatch?kwMatch[1]:'';
-        var rest=trimmed.slice(prefix.length);
-        var parts=splitTopLevel(rest);
-        if(parts.length>1){
-          var indent=' '.repeat(prefix.length);
-          out.push(prefix+parts[0]+',');
-          for(var j=1;j<parts.length;j++){out.push(indent+parts[j]+(j===parts.length-1?'':','));}
-          return;
-        }
-      } else if(clause==='from'){
-        var fwMatch=trimmed.match(/^(FROM\s+)/i);
-        var fprefix=fwMatch?fwMatch[1]:'';
-        var frest=trimmed.slice(fprefix.length);
-        var fparts=splitTopLevel(frest);
-        if(fparts.length>1){
-          var findent=' '.repeat(fprefix.length);
-          out.push(fprefix+fparts[0]+',');
-          for(var j=1;j<fparts.length;j++){out.push(findent+fparts[j]+(j===fparts.length-1?'':','));}
-          clause=null;return;
-        }
-      }
-      out.push(line);
-    });
-    v=out.join('\n');
-  })();
+    // JOIN clauses - 4 spaces
+    else if(/^(join|left join|right join|inner join|full join|cross join|on)/.test(lower)){
+      indent='    ';
+    }
+    // AND/OR - 4 spaces
+    else if(/^(and|or)/.test(lower)){
+      indent='    ';
+    }
+    // CASE/WHEN/THEN/ELSE/END - 4-8 spaces
+    else if(/^(case|when|then|else|end)/.test(lower)){
+      indent='        ';
+      if(/^case/.test(lower)) indent='    ';
+      if(/^end/.test(lower)) indent='    ';
+    }
+    // Regular columns/tables - 4 spaces under SELECT/FROM
+    else {
+      indent='    ';
+    }
+    
+    out.push(indent+lower);
+  });
+  
+  v=out.join('\n');
+  
+  // Restore string literals
   v=v.replace(/\x00STR(\d+)\x00/g, function(_,i){ return literals[parseInt(i)]; });
+  
+  // Clean up
   v=v.replace(/^\n+/,'').replace(/\n{3,}/g,'\n\n').trim();
-  ta.value=v; doHL(); doLN();
+  
+  ta.value=v;
+  doHL();
+  doLN();
 }
 
 function changeFontSize(d){fontSize=Math.max(10,Math.min(20,fontSize+d));['sqled','hl','lnums'].forEach(function(id){document.getElementById(id).style.fontSize=fontSize+'px';});}
