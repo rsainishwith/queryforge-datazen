@@ -287,7 +287,7 @@ body{
 }
 #res-info{color:#ffffff;font-weight:600;font-size:13px;}
 .res-bar-right{margin-left:auto;display:flex;align-items:center;gap:4px;}
-.tbl-wrap{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.tbl-wrap{flex:1;overflow:auto;}
 .tbl-wrap::-webkit-scrollbar{width:6px;height:6px;}
 .tbl-wrap::-webkit-scrollbar-thumb{background:#374151;border-radius:3px;}
 table{width:100%;border-collapse:collapse;font-size:12px;}
@@ -846,8 +846,6 @@ thead .rn-col{background:#1e293b !important;color:#6b7280;font-weight:600 !impor
 #vs-scroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: auto;
 }
 
 td.sir-hl {
