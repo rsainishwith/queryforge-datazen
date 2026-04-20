@@ -810,68 +810,154 @@ function formatSQL(){
   // Preserve string literals  
   v=v.replace(/'(?:[^'\\]|''|\\.)*'/g,function(m){literals.push(m);return '\x00LT'+(literals.length-1)+'\x00';});
   
-  // Normalize whitespace but keep some structure
+  // Normalize whitespace
   v=v.replace(/\s+/g,' ').trim();
   
-  // Add newlines before major keywords
-  v=v.replace(/\bSELECT\b/gi,'\nSELECT');
-  v=v.replace(/\bFROM\b/gi,'\nFROM');
-  v=v.replace(/\bWHERE\b/gi,'\nWHERE');
-  v=v.replace(/\bGROUP BY\b/gi,'\nGROUP BY');
-  v=v.replace(/\bORDER BY\b/gi,'\nORDER BY');
-  v=v.replace(/\bHAVING\b/gi,'\nHAVING');
-  v=v.replace(/\bUNION\b/gi,'\nUNION');
+  // Convert to uppercase keywords
+  v=v.replace(/\bselect\b/gi,'SELECT');
+  v=v.replace(/\bfrom\b/gi,'FROM');
+  v=v.replace(/\bwhere\b/gi,'WHERE');
+  v=v.replace(/\band\b/gi,'AND');
+  v=v.replace(/\bor\b/gi,'OR');
+  v=v.replace(/\bgroup by\b/gi,'GROUP BY');
+  v=v.replace(/\border by\b/gi,'ORDER BY');
+  v=v.replace(/\bcase\b/gi,'CASE');
+  v=v.replace(/\bwhen\b/gi,'WHEN');
+  v=v.replace(/\bthen\b/gi,'THEN');
+  v=v.replace(/\belse\b/gi,'ELSE');
+  v=v.replace(/\bend\b/gi,'END');
+  v=v.replace(/\bas\b/gi,'AS');
+  v=v.replace(/\bsum\b/gi,'SUM');
+  v=v.replace(/\bexists\b/gi,'EXISTS');
+  v=v.replace(/\bbetween\b/gi,'BETWEEN');
+  v=v.replace(/\bin\b/gi,'IN');
+  v=v.replace(/\bnvl\b/gi,'NVL');
+  v=v.replace(/\btrunc\b/gi,'TRUNC');
+  v=v.replace(/\bis null\b/gi,'IS NULL');
+  v=v.replace(/\bcoalesce\b/gi,'COALESCE');
+  v=v.replace(/\btable\b/gi,'TABLE');
   
-  // Add newline before AND/OR in WHERE
-  v=v.replace(/\s(AND|OR)\s/gi,'\n$1 ');
+  // Add line breaks before main keywords (but not inside parentheses)
+  v=v.replace(/\s+SELECT\s+/g,'\nSELECT ');
+  v=v.replace(/\s+FROM\s+/g,'\nFROM ');
+  v=v.replace(/\s+WHERE\s+/g,'\nWHERE ');
+  v=v.replace(/\s+GROUP BY\s+/g,'\nGROUP BY ');
+  v=v.replace(/\s+ORDER BY\s+/g,'\nORDER BY ');
   
+  // Split by lines
   var lines=v.split('\n');
-  var result=[];
-  var currentClause='';
+  var out=[];
   
   for(var i=0;i<lines.length;i++){
     var line=lines[i].trim();
     if(!line) continue;
     
-    var upperLine=line.toUpperCase();
-    var indent='';
-    
-    // Detect current clause
-    if(upperLine.match(/^SELECT/)) currentClause='SELECT';
-    else if(upperLine.match(/^FROM/)) currentClause='FROM';
-    else if(upperLine.match(/^WHERE/)) currentClause='WHERE';
-    else if(upperLine.match(/^GROUP BY/)) currentClause='GROUPBY';
-    else if(upperLine.match(/^ORDER BY/)) currentClause='ORDERBY';
-    else if(upperLine.match(/^HAVING/)) currentClause='HAVING';
-    
-    // Set indentation based on clause
-    if(upperLine.match(/^(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|UNION)/)){
-      indent='';
-      result.push(upperLine.split(/\s+/)[0].toUpperCase() + (upperLine.length > 10 ? ' ' + upperLine.substring(upperLine.indexOf(' ')+1) : ''));
+    // SELECT - add columns on new lines
+    if(/^SELECT/.test(line)){
+      out.push('SELECT');
+      var rest=line.substring(6).trim();
+      var cols=rest.split(',');
+      cols.forEach(function(col,idx){
+        var c=col.trim();
+        if(c){
+          out.push('    '+c+(idx<cols.length-1?',':''));
+        }
+      });
     }
-    else if(upperLine.match(/^(AND|OR)/)){
-      indent='    AND ';
-      var rest=line.substring(line.toUpperCase().indexOf('AND')+3).trim();
-      if(rest.toUpperCase().startsWith('OR')) rest=rest.substring(2).trim();
-      result.push(indent+rest);
+    // FROM - add tables on new lines
+    else if(/^FROM/.test(line)){
+      out.push('FROM');
+      var rest=line.substring(4).trim();
+      // Split by comma but be careful with TABLE(...) functions
+      var tables=[];
+      var current='';
+      var parenDepth=0;
+      for(var j=0;j<rest.length;j++){
+        var c=rest[j];
+        if(c==='(') parenDepth++;
+        if(c===')') parenDepth--;
+        if(c===',' && parenDepth===0){
+          if(current.trim()) tables.push(current.trim());
+          current='';
+        } else {
+          current+=c;
+        }
+      }
+      if(current.trim()) tables.push(current.trim());
+      
+      tables.forEach(function(tbl,idx){
+        out.push('    '+tbl+(idx<tables.length-1?',':''));
+      });
+    }
+    // WHERE - handle AND conditions
+    else if(/^WHERE/.test(line)){
+      out.push('WHERE');
+      var rest=line.substring(5).trim();
+      // Split by AND at top level
+      var conditions=[];
+      var current='';
+      var parenDepth=0;
+      var upperRest=rest.toUpperCase();
+      for(var j=0;j<rest.length;j++){
+        var c=rest[j];
+        if(c==='(') parenDepth++;
+        if(c===')') parenDepth--;
+        
+        // Check for AND keyword
+        if(parenDepth===0 && upperRest.substring(j,j+3)==='AND' && (j===0 || !upperRest[j-1].match(/\w/))){
+          if(current.trim()){
+            conditions.push({text:current.trim(),isAnd:false});
+          }
+          current='AND';
+          j+=2;
+        } else {
+          current+=c;
+        }
+      }
+      if(current.trim()) conditions.push({text:current.trim(),isAnd:current.trim().toUpperCase().startsWith('AND')});
+      
+      // Output conditions
+      if(conditions.length>0){
+        out.push('        '+conditions[0].text);
+        for(var k=1;k<conditions.length;k++){
+          out.push('    AND');
+          var cond=conditions[k].text;
+          if(cond.toUpperCase().startsWith('AND')) cond=cond.substring(3).trim();
+          out.push('        '+cond);
+        }
+      }
+    }
+    // GROUP BY
+    else if(/^GROUP BY/.test(line)){
+      out.push('GROUP BY');
+      var rest=line.substring(8).trim();
+      var items=rest.split(',');
+      items.forEach(function(item,idx){
+        var it=item.trim();
+        if(it){
+          out.push('    '+it+(idx<items.length-1?',':''));
+        }
+      });
+    }
+    // ORDER BY
+    else if(/^ORDER BY/.test(line)){
+      out.push('ORDER BY');
+      var rest=line.substring(8).trim();
+      var items=rest.split(',');
+      items.forEach(function(item,idx){
+        var it=item.trim();
+        if(it){
+          out.push('    '+it+(idx<items.length-1?',':''));
+        }
+      });
     }
     else {
-      // Content under a clause
-      if(currentClause==='SELECT' || currentClause==='FROM'){
-        indent='    ';
-        result.push(indent+line);
-      }
-      else if(currentClause==='WHERE'){
-        indent='        ';
-        result.push(indent+line);
-      }
-      else {
-        result.push('    '+line);
-      }
+      // Continuation lines from previous parsing
+      out.push('    '+line);
     }
   }
   
-  v=result.join('\n');
+  v=out.join('\n');
   
   // Restore comments
   v=v.replace(/\x00CM(\d+)\x00/g,function(_,i){return comments[parseInt(i)];});
@@ -885,6 +971,7 @@ function formatSQL(){
   doHL();
   doLN();
 }
+
 function changeFontSize(d){fontSize=Math.max(10,Math.min(20,fontSize+d));['sqled','hl','lnums'].forEach(function(id){document.getElementById(id).style.fontSize=fontSize+'px';});}
 function findInSQL(){var q=prompt('Find in SQL:');if(!q)return;var ta=document.getElementById('sqled'),idx=ta.value.toLowerCase().indexOf(q.toLowerCase());if(idx>-1){ta.focus();ta.setSelectionRange(idx,idx+q.length);}else alert('"'+q+'" not found.');}
 
