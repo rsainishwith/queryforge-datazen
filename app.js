@@ -477,6 +477,9 @@ function getFilteredData(){
 /* ══════════ VIRTUAL SCROLL STATE ══════════════════════════════ */
 var vsFiltered=[];
 
+/* ══════════ VIRTUAL SCROLL STATE ══════════════════════════════ */
+var vsFiltered=[], vsRowH=28, vsBuffer=10, vsStart=0, vsEnd=0;
+
 function renderTable(){
   var filtered=getFilteredData();
   vsFiltered=filtered;
@@ -504,15 +507,15 @@ function renderTable(){
     +resultCols.map(function(){return '<col style="width:'+COL_W+'px;">';}).join('')
     +'</colgroup>';
 
-  var h='<div style="width:100%;overflow-x:auto;overflow-y:auto;height:100%;">'
+  // Header table (frozen)
+  var h='<div id="vs-header-scroll" style="overflow:hidden;flex-shrink:0;">'
     +'<table id="vs-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'
-    +colgroup
-    +'<thead><tr><th class="rn-col" style="width:40px;position:sticky;top:0;z-index:5;">#</th>';
+    +colgroup+'<thead><tr><th class="rn-col" style="width:40px;">#</th>';
   resultCols.forEach(function(c){
     var arrow=sortCol===c?(sortAsc?' ▲':' ▼'):'';
     var hasFilter=colFilters[c]!=null;
     var iconFill=hasFilter?'currentColor':'none';
-    h+='<th style="position:sticky;top:0;z-index:5;">'
+    h+='<th style="position:relative;">'
       +'<div class="th-inner">'
       +'<span class="th-label" onclick="clickSort(\''+escJ(c)+'\')" title="Sort by '+esc(c)+'">'+esc(c)+arrow+'</span>'
       +'<button class="th-filter-btn'+(hasFilter?' active':'')+'" '
@@ -525,21 +528,33 @@ function renderTable(){
       +'<div class="col-resizer" onmousedown="startResize(event)"></div>'
       +'</th>';
   });
-  h+='</tr></thead><tbody id="vs-tbody">';
-  for(var i=0;i<filtered.length;i++){
-    var row=filtered[i];
-    h+='<tr><td class="rn-col">'+(i+1)+'</td>';
-    resultCols.forEach(function(c){
-      var v=row[c];
-      if(v===null||v===undefined||v==='')h+='<td class="null-cell">(null)</td>';
-      else h+='<td>'+esc(String(v))+'</td>';
-    });
-    h+='</tr>';
-  }
-  h+='</tbody></table></div>';
+  h+='</tr></thead></table></div>';
+
+  // Scrollable body
+  h+='<div id="vs-scroll" style="flex:1;overflow-y:scroll;overflow-x:auto;min-height:0;">'
+    +'<div id="vs-spacer-top" style="height:0px;"></div>'
+    +'<table id="vs-body-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'
+    +colgroup+'<tbody id="vs-tbody"></tbody></table>'
+    +'<div id="vs-spacer-bot" style="height:0px;"></div>'
+    +'</div>';
 
   document.getElementById('rarea').innerHTML=h;
 
+  // Sync horizontal scroll between header and body
+  var scroller=document.getElementById('vs-scroll');
+  var headerScroll=document.getElementById('vs-header-scroll');
+  scroller.addEventListener('scroll',function(){
+    headerScroll.scrollLeft=scroller.scrollLeft;
+    vsRenderVisible(scroller.scrollTop);
+  },{passive:true});
+
+  // Measure real row height after first render
+  vsRenderVisible(0);
+  var firstRow=document.querySelector('#vs-tbody tr');
+  if(firstRow && firstRow.offsetHeight>0) vsRowH=firstRow.offsetHeight;
+  vsRenderVisible(0);
+
+  // Column resize
   (function(){
     var startX,startW,th,colIdx;
     window.startResize=function(e){
@@ -552,11 +567,13 @@ function renderTable(){
     };
     function onMove(e){
       var w=Math.max(60,startW+(e.clientX-startX));
-      var cols=document.querySelectorAll('#vs-table colgroup col');
-      if(cols[colIdx])cols[colIdx].style.width=w+'px';
-      var total=0;
-      cols.forEach(function(c){total+=parseInt(c.style.width)||COL_W;});
-      document.getElementById('vs-table').style.width=total+'px';
+      var cols1=document.querySelectorAll('#vs-table colgroup col');
+      var cols2=document.querySelectorAll('#vs-body-table colgroup col');
+      if(cols1[colIdx])cols1[colIdx].style.width=w+'px';
+      if(cols2[colIdx])cols2[colIdx].style.width=w+'px';
+      var t=0;cols1.forEach(function(c){t+=parseInt(c.style.width)||COL_W;});
+      document.getElementById('vs-table').style.width=t+'px';
+      document.getElementById('vs-body-table').style.width=t+'px';
     }
     function onUp(){
       document.removeEventListener('mousemove',onMove);
@@ -565,6 +582,37 @@ function renderTable(){
   })();
 
   if(gtcOpen)buildGtcList(document.getElementById('gtc-search').value);
+}
+
+function vsRenderVisible(scrollTop){
+  var filtered=vsFiltered;
+  var total=filtered.length;
+  var scroller=document.getElementById('vs-scroll');
+  var containerH=scroller?scroller.clientHeight:400;
+  var visibleCount=Math.ceil(containerH/vsRowH)+vsBuffer*2;
+  var startIdx=Math.max(0,Math.floor(scrollTop/vsRowH)-vsBuffer);
+  var endIdx=Math.min(total,startIdx+visibleCount);
+  vsStart=startIdx;vsEnd=endIdx;
+  document.getElementById('vs-spacer-top').style.height=(startIdx*vsRowH)+'px';
+  document.getElementById('vs-spacer-bot').style.height=((total-endIdx)*vsRowH)+'px';
+  var h='';
+  for(var i=startIdx;i<endIdx;i++){
+    var row=filtered[i];
+    h+='<tr style="height:'+vsRowH+'px;"><td class="rn-col">'+(i+1)+'</td>';
+    resultCols.forEach(function(c){
+      var v=row[c];
+      var cls='';
+      if(_sirLastQ&&v!==null&&v!==undefined&&v!==''&&String(v).toLowerCase().includes(_sirLastQ)){
+        var isCur=_sirIdx>=0&&_sirMatches[_sirIdx]&&_sirMatches[_sirIdx].rowIdx===i&&_sirMatches[_sirIdx].col===c;
+        cls=isCur?'sir-hl-cur':'sir-hl';
+      }
+      var cellCls=(v===null||v===undefined||v==='') ? ('null-cell'+(cls?' '+cls:'')) : cls;
+      if(v===null||v===undefined||v==='') h+='<td class="'+cellCls+'">(null)</td>';
+      else h+='<td'+(cls?' class="'+cls+'"':'')+'>'+esc(String(v))+'</td>';
+    });
+    h+='</tr>';
+  }
+  document.getElementById('vs-tbody').innerHTML=h;
 }
 
 /* ══════════ SORT ══════════════════════════════════════════════ */
@@ -1040,29 +1088,11 @@ function sirScrollToMatch(idx){
   if(idx < 0 || idx >= _sirMatches.length) return;
   var match = _sirMatches[idx];
   if(!match) return;
-  // Scroll the table wrapper div (first child of rarea)
-  var scroller = document.querySelector('#rarea > div');
+  var scroller = document.getElementById('vs-scroll');
   if(!scroller) return;
-  // Find the actual TR row by row index
-  var tbody = document.getElementById('vs-tbody');
-  if(!tbody) return;
-  var row = tbody.querySelectorAll('tr')[match.rowIdx];
-  if(row) row.scrollIntoView({block:'center', behavior:'smooth'});
-  // Highlight — clear old, add new
-  document.querySelectorAll('#vs-tbody td.sir-hl, #vs-tbody td.sir-hl-cur').forEach(function(td){
-    td.classList.remove('sir-hl','sir-hl-cur');
-  });
-  document.querySelectorAll('#vs-tbody td.null-cell.sir-hl, #vs-tbody td.null-cell.sir-hl-cur').forEach(function(td){
-    td.classList.remove('sir-hl','sir-hl-cur');
-  });
-  // Add highlights to all matches
-  _sirMatches.forEach(function(m, i){
-    var tr = tbody.querySelectorAll('tr')[m.rowIdx];
-    if(!tr) return;
-    var colIdx = resultCols.indexOf(m.col);
-    var td = tr.querySelectorAll('td')[colIdx+1];
-    if(td) td.classList.add(i === idx ? 'sir-hl-cur' : 'sir-hl');
-  });
+  var targetScrollTop = Math.max(0, (match.rowIdx * vsRowH) - (scroller.clientHeight / 2) + (vsRowH / 2));
+  scroller.scrollTop = targetScrollTop;
+  setTimeout(function(){ vsRenderVisible(scroller.scrollTop); }, 30);
 }
 
 function sirKeyNav(e){
