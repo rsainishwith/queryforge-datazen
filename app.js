@@ -809,62 +809,84 @@ function formatSQL(){
   // Normalize whitespace
   v=v.replace(/\s+/g,' ').trim();
   
-  // Add line breaks before keywords
-  v=v.replace(/\b(SELECT|FROM|WHERE|GROUP\s+BY|HAVING|ORDER\s+BY|UNION|UNION\s+ALL|INTERSECT|MINUS)\b/gi, '\n$1');
-  v=v.replace(/\b(JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|FULL\s+JOIN|LEFT\s+OUTER\s+JOIN|RIGHT\s+OUTER\s+JOIN|CROSS\s+JOIN|ON)\b/gi, '\n$1');
-  v=v.replace(/\b(AND|OR)\b/gi, '\n$1');
-  v=v.replace(/\b(CASE|WHEN|THEN|ELSE|END)\b/gi, '\n  $1');
+  // Add line breaks before main keywords
+  v=v.replace(/\s+(SELECT|FROM|WHERE|GROUP\s+BY|HAVING|ORDER\s+BY|UNION|UNION\s+ALL|INTERSECT|MINUS)\s+/gi, '\n$1 ');
+  v=v.replace(/\s+(JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|FULL\s+JOIN|CROSS\s+JOIN)\s+/gi, '\n$1 ');
+  v=v.replace(/\s+(ON|AND|OR)\s+/gi, '\n$1 ');
   
-  // Split and format
+  // Split by commas in FROM clause (for tables)
   var lines=v.split('\n');
   var out=[];
+  var inFromClause=false;
   
-  lines.forEach(function(line){
+  lines.forEach(function(line,idx){
     var trimmed=line.trim();
     if(!trimmed) return;
     
+    // Check if this is FROM clause start
+    if(/^FROM\s+/i.test(trimmed)){
+      inFromClause=true;
+      var fromMatch=trimmed.match(/^(FROM)\s+(.*)/i);
+      if(fromMatch){
+        out.push(fromMatch[1].toUpperCase());
+        var tables=fromMatch[2].split(/,(?![^()]*\))/); // Split by comma not inside parentheses
+        tables.forEach(function(tbl,tidx){
+          tbl=tbl.trim();
+          if(tbl) out.push('    '+tbl);
+        });
+      }
+      return;
+    }
+    
+    // Check if FROM clause ends
+    if(/^(WHERE|GROUP|HAVING|ORDER|UNION|INTERSECT|MINUS|JOIN)/i.test(trimmed)){
+      inFromClause=false;
+    }
+    
+    // If in FROM clause and not the FROM keyword itself, split by commas
+    if(inFromClause && !/^FROM/i.test(trimmed)){
+      var tables=trimmed.split(/,(?![^()]*\))/);
+      tables.forEach(function(tbl){
+        tbl=tbl.trim();
+        if(tbl) out.push('    '+tbl);
+      });
+      return;
+    }
+    
+    // Format other lines with proper indentation
+    var upper=trimmed.toUpperCase();
     var lower=trimmed.toLowerCase();
-    var indent='';
     
-    // Main clauses - no indent
-    if(/^(select|from|where|group by|having|order by|union|union all|intersect|minus)/.test(lower)){
-      indent='';
+    if(/^(SELECT|FROM|WHERE|GROUP|HAVING|ORDER|UNION|INTERSECT|MINUS)/.test(upper)){
+      // Main keywords - uppercase, no indent
+      out.push(upper);
     }
-    // JOIN clauses - 4 spaces
-    else if(/^(join|left join|right join|inner join|full join|cross join|on)/.test(lower)){
-      indent='    ';
+    else if(/^(JOIN|LEFT|RIGHT|INNER|FULL|CROSS|ON)/.test(upper)){
+      // JOIN clauses - uppercase, 4 space indent
+      out.push('    '+upper);
     }
-    // AND/OR - 4 spaces
-    else if(/^(and|or)/.test(lower)){
-      indent='    ';
+    else if(/^(AND|OR)/.test(upper)){
+      // AND/OR - uppercase, 4 space indent
+      out.push('    '+upper);
     }
-    // CASE/WHEN/THEN/ELSE/END - 4-8 spaces
-    else if(/^(case|when|then|else|end)/.test(lower)){
-      indent='        ';
-      if(/^case/.test(lower)) indent='    ';
-      if(/^end/.test(lower)) indent='    ';
-    }
-    // Regular columns/tables - 4 spaces under SELECT/FROM
     else {
-      indent='    ';
+      // Everything else - keep case, 4 space indent
+      out.push('    '+trimmed);
     }
-    
-    out.push(indent+lower);
   });
   
   v=out.join('\n');
   
   // Restore string literals
-  v=v.replace(/\x00STR(\d+)\x00/g, function(_,i){ return literals[parseInt(i)]; });
+  v=v.replace(/\x00STR(\d+)\x00/g,function(_,i){return literals[parseInt(i)];});
   
-  // Clean up
   v=v.replace(/^\n+/,'').replace(/\n{3,}/g,'\n\n').trim();
   
   ta.value=v;
   doHL();
   doLN();
-   console.log('Formatted SQL:', ta.value.substring(0, 100));
 }
+
 
 function changeFontSize(d){fontSize=Math.max(10,Math.min(20,fontSize+d));['sqled','hl','lnums'].forEach(function(id){document.getElementById(id).style.fontSize=fontSize+'px';});}
 function findInSQL(){var q=prompt('Find in SQL:');if(!q)return;var ta=document.getElementById('sqled'),idx=ta.value.toLowerCase().indexOf(q.toLowerCase());if(idx>-1){ta.focus();ta.setSelectionRange(idx,idx+q.length);}else alert('"'+q+'" not found.');}
