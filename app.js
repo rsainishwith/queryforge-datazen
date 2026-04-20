@@ -603,7 +603,7 @@ function vsRenderVisible(scrollTop){
         var isCur=_sirIdx>=0&&_sirMatches[_sirIdx]&&_sirMatches[_sirIdx].rowIdx===i&&_sirMatches[_sirIdx].col===c;
         cls=isCur?'sir-hl-cur':'sir-hl';
       }
-        if(v===null||v===undefined||v==='')h+='<td class="null-cell'+(cls?' '+cls:'')+'">(null)</td>';
+      if(v===null||v===undefined||v==='')h+='<td class="null-cell'+(cls?' '+cls:'')+'">(null)</td>';
       else h+='<td'+(cls?' class="'+cls+'"':'')+'>'+esc(String(v))+'</td>';
     });
     h+='</tr>';
