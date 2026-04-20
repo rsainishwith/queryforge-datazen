@@ -805,171 +805,192 @@ function formatSQL(){
   var comments=[];
   
   // Preserve comments
-  v=v.replace(/--[^\n]*/g,function(m){comments.push(m);return '\x00CM'+(comments.length-1)+'\x00';});
+  v=v.replace(/--[^\n]*/g,function(m){comments.push(m);return '\x00COMMENT'+(comments.length-1)+'\x00';});
   
   // Preserve string literals  
-  v=v.replace(/'(?:[^'\\]|''|\\.)*'/g,function(m){literals.push(m);return '\x00LT'+(literals.length-1)+'\x00';});
+  v=v.replace(/'(?:[^'\\]|''|\\.)*'/g,function(m){literals.push(m);return '\x00LITERAL'+(literals.length-1)+'\x00';});
   
   // Normalize whitespace
   v=v.replace(/\s+/g,' ').trim();
   
-  // Convert to uppercase keywords
-  v=v.replace(/\bselect\b/gi,'SELECT');
-  v=v.replace(/\bfrom\b/gi,'FROM');
-  v=v.replace(/\bwhere\b/gi,'WHERE');
-  v=v.replace(/\band\b/gi,'AND');
-  v=v.replace(/\bor\b/gi,'OR');
-  v=v.replace(/\bgroup by\b/gi,'GROUP BY');
-  v=v.replace(/\border by\b/gi,'ORDER BY');
-  v=v.replace(/\bcase\b/gi,'CASE');
-  v=v.replace(/\bwhen\b/gi,'WHEN');
-  v=v.replace(/\bthen\b/gi,'THEN');
-  v=v.replace(/\belse\b/gi,'ELSE');
-  v=v.replace(/\bend\b/gi,'END');
-  v=v.replace(/\bas\b/gi,'AS');
-  v=v.replace(/\bsum\b/gi,'SUM');
-  v=v.replace(/\bexists\b/gi,'EXISTS');
-  v=v.replace(/\bbetween\b/gi,'BETWEEN');
-  v=v.replace(/\bin\b/gi,'IN');
-  v=v.replace(/\bnvl\b/gi,'NVL');
-  v=v.replace(/\btrunc\b/gi,'TRUNC');
-  v=v.replace(/\bis null\b/gi,'IS NULL');
-  v=v.replace(/\bcoalesce\b/gi,'COALESCE');
-  v=v.replace(/\btable\b/gi,'TABLE');
+  // Add newlines ONLY before main keywords at word boundary
+  v=v.replace(/\bSELECT\b/gi,'\nSELECT');
+  v=v.replace(/\bFROM\b/gi,'\nFROM');
+  v=v.replace(/\bWHERE\b/gi,'\nWHERE');
+  v=v.replace(/\bGROUP\s+BY\b/gi,'\nGROUP BY');
+  v=v.replace(/\bORDER\s+BY\b/gi,'\nORDER BY');
+  v=v.replace(/\bHAVING\b/gi,'\nHAVING');
   
-  // Add line breaks before main keywords (but not inside parentheses)
-  v=v.replace(/\s+SELECT\s+/g,'\nSELECT ');
-  v=v.replace(/\s+FROM\s+/g,'\nFROM ');
-  v=v.replace(/\s+WHERE\s+/g,'\nWHERE ');
-  v=v.replace(/\s+GROUP BY\s+/g,'\nGROUP BY ');
-  v=v.replace(/\s+ORDER BY\s+/g,'\nORDER BY ');
-  
-  // Split by lines
+  // Now process line by line
   var lines=v.split('\n');
-  var out=[];
+  var output=[];
+  var i=0;
   
-  for(var i=0;i<lines.length;i++){
+  while(i < lines.length){
     var line=lines[i].trim();
-    if(!line) continue;
+    if(!line){i++;continue;}
     
-    // SELECT - add columns on new lines
-    if(/^SELECT/.test(line)){
-      out.push('SELECT');
-      var rest=line.substring(6).trim();
-      var cols=rest.split(',');
+    var upper=line.toUpperCase();
+    
+    // === SELECT CLAUSE ===
+    if(upper.startsWith('SELECT')){
+      output.push('SELECT');
+      var selectPart=line.substring(6).trim();
+      
+      // Collect all select columns until FROM
+      var allCols=selectPart;
+      i++;
+      while(i<lines.length && !lines[i].trim().toUpperCase().startsWith('FROM')){
+        allCols+=' '+lines[i].trim();
+        i++;
+      }
+      
+      // Split by comma, respecting parentheses
+      var cols=splitByCommaRespectParens(allCols);
       cols.forEach(function(col,idx){
-        var c=col.trim();
-        if(c){
-          out.push('    '+c+(idx<cols.length-1?',':''));
-        }
+        output.push('    '+col.trim()+(idx<cols.length-1?',':''));
       });
+      continue;
     }
-    // FROM - add tables on new lines
-    else if(/^FROM/.test(line)){
-      out.push('FROM');
-      var rest=line.substring(4).trim();
-      // Split by comma but be careful with TABLE(...) functions
-      var tables=[];
-      var current='';
-      var parenDepth=0;
-      for(var j=0;j<rest.length;j++){
-        var c=rest[j];
-        if(c==='(') parenDepth++;
-        if(c===')') parenDepth--;
-        if(c===',' && parenDepth===0){
-          if(current.trim()) tables.push(current.trim());
-          current='';
-        } else {
-          current+=c;
-        }
-      }
-      if(current.trim()) tables.push(current.trim());
+    
+    // === FROM CLAUSE ===
+    if(upper.startsWith('FROM')){
+      output.push('FROM');
+      var fromPart=line.substring(4).trim();
       
+      // Collect all table names until WHERE
+      var allTables=fromPart;
+      i++;
+      while(i<lines.length && !lines[i].trim().toUpperCase().startsWith('WHERE') && !lines[i].trim().toUpperCase().startsWith('GROUP')){
+        allTables+=' '+lines[i].trim();
+        i++;
+      }
+      
+      // Split by comma, respecting parentheses
+      var tables=splitByCommaRespectParens(allTables);
       tables.forEach(function(tbl,idx){
-        out.push('    '+tbl+(idx<tables.length-1?',':''));
+        output.push('    '+tbl.trim()+(idx<tables.length-1?',':''));
       });
+      continue;
     }
-    // WHERE - handle AND conditions
-    else if(/^WHERE/.test(line)){
-      out.push('WHERE');
-      var rest=line.substring(5).trim();
-      // Split by AND at top level
-      var conditions=[];
-      var current='';
-      var parenDepth=0;
-      var upperRest=rest.toUpperCase();
-      for(var j=0;j<rest.length;j++){
-        var c=rest[j];
-        if(c==='(') parenDepth++;
-        if(c===')') parenDepth--;
-        
-        // Check for AND keyword
-        if(parenDepth===0 && upperRest.substring(j,j+3)==='AND' && (j===0 || !upperRest[j-1].match(/\w/))){
-          if(current.trim()){
-            conditions.push({text:current.trim(),isAnd:false});
-          }
-          current='AND';
-          j+=2;
-        } else {
-          current+=c;
-        }
-      }
-      if(current.trim()) conditions.push({text:current.trim(),isAnd:current.trim().toUpperCase().startsWith('AND')});
+    
+    // === WHERE CLAUSE ===
+    if(upper.startsWith('WHERE')){
+      output.push('WHERE');
+      var wherePart=line.substring(5).trim();
       
-      // Output conditions
-      if(conditions.length>0){
-        out.push('        '+conditions[0].text);
-        for(var k=1;k<conditions.length;k++){
-          out.push('    AND');
-          var cond=conditions[k].text;
-          if(cond.toUpperCase().startsWith('AND')) cond=cond.substring(3).trim();
-          out.push('        '+cond);
-        }
+      // Collect all WHERE conditions until GROUP/ORDER/HAVING
+      var allConds=wherePart;
+      i++;
+      while(i<lines.length && !lines[i].trim().toUpperCase().match(/^(GROUP|ORDER|HAVING)/)){
+        allConds+=' '+lines[i].trim();
+        i++;
       }
-    }
-    // GROUP BY
-    else if(/^GROUP BY/.test(line)){
-      out.push('GROUP BY');
-      var rest=line.substring(8).trim();
-      var items=rest.split(',');
-      items.forEach(function(item,idx){
-        var it=item.trim();
-        if(it){
-          out.push('    '+it+(idx<items.length-1?',':''));
+      
+      // Split by AND at top level
+      var conds=splitByAndTopLevel(allConds);
+      conds.forEach(function(cond,idx){
+        if(idx===0){
+          output.push('        '+cond.trim());
+        } else {
+          output.push('    AND');
+          output.push('        '+cond.trim());
         }
       });
+      continue;
     }
-    // ORDER BY
-    else if(/^ORDER BY/.test(line)){
-      out.push('ORDER BY');
-      var rest=line.substring(8).trim();
-      var items=rest.split(',');
-      items.forEach(function(item,idx){
-        var it=item.trim();
-        if(it){
-          out.push('    '+it+(idx<items.length-1?',':''));
-        }
+    
+    // === GROUP BY CLAUSE ===
+    if(upper.startsWith('GROUP BY')){
+      output.push('GROUP BY');
+      var groupPart=line.substring(8).trim();
+      
+      var cols=splitByCommaRespectParens(groupPart);
+      cols.forEach(function(col,idx){
+        output.push('    '+col.trim()+(idx<cols.length-1?',':''));
       });
+      i++;
+      continue;
     }
-    else {
-      // Continuation lines from previous parsing
-      out.push('    '+line);
+    
+    // === ORDER BY CLAUSE ===
+    if(upper.startsWith('ORDER BY')){
+      output.push('ORDER BY');
+      var orderPart=line.substring(8).trim();
+      
+      var cols=splitByCommaRespectParens(orderPart);
+      cols.forEach(function(col,idx){
+        output.push('    '+col.trim()+(idx<cols.length-1?',':''));
+      });
+      i++;
+      continue;
     }
+    
+    i++;
   }
   
-  v=out.join('\n');
+  var result=output.join('\n');
   
   // Restore comments
-  v=v.replace(/\x00CM(\d+)\x00/g,function(_,i){return comments[parseInt(i)];});
+  result=result.replace(/\x00COMMENT(\d+)\x00/g,function(_,i){return comments[parseInt(i)];});
   
   // Restore literals
-  v=v.replace(/\x00LT(\d+)\x00/g,function(_,i){return literals[parseInt(i)];});
+  result=result.replace(/\x00LITERAL(\d+)\x00/g,function(_,i){return literals[parseInt(i)];});
   
-  v=v.replace(/^\n+/,'').replace(/\n{3,}/g,'\n\n').trim();
+  result=result.replace(/^\n+/,'').replace(/\n{3,}/g,'\n\n').trim();
   
-  ta.value=v;
+  ta.value=result;
   doHL();
   doLN();
+}
+
+// Helper: split by comma respecting parentheses
+function splitByCommaRespectParens(str){
+  var parts=[];
+  var current='';
+  var depth=0;
+  for(var i=0;i<str.length;i++){
+    var c=str[i];
+    if(c==='(') depth++;
+    if(c===')') depth--;
+    if(c===',' && depth===0){
+      if(current.trim()) parts.push(current.trim());
+      current='';
+    } else {
+      current+=c;
+    }
+  }
+  if(current.trim()) parts.push(current.trim());
+  return parts;
+}
+
+// Helper: split by AND at top level
+function splitByAndTopLevel(str){
+  var parts=[];
+  var current='';
+  var depth=0;
+  var i=0;
+  while(i<str.length){
+    var c=str[i];
+    if(c==='(') depth++;
+    if(c===')') depth--;
+    
+    // Check for AND keyword
+    if(depth===0 && str.substring(i).toUpperCase().startsWith('AND')){
+      var prevChar=i>0?str[i-1]:'';
+      var nextChar=str[i+3]||'';
+      if((i===0 || !prevChar.match(/\w/)) && !nextChar.match(/\w/)){
+        if(current.trim()) parts.push(current.trim());
+        current='';
+        i+=3;
+        continue;
+      }
+    }
+    current+=c;
+    i++;
+  }
+  if(current.trim()) parts.push(current.trim());
+  return parts;
 }
 
 function changeFontSize(d){fontSize=Math.max(10,Math.min(20,fontSize+d));['sqled','hl','lnums'].forEach(function(id){document.getElementById(id).style.fontSize=fontSize+'px';});}
