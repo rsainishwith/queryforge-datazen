@@ -504,14 +504,15 @@ function renderTable(){
     +resultCols.map(function(){return '<col style="width:'+COL_W+'px;">';}).join('')
     +'</colgroup>';
 
-  var h='<table id="vs-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'
+  var h='<div style="width:100%;overflow-x:auto;overflow-y:auto;height:100%;">'
+    +'<table id="vs-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'
     +colgroup
-    +'<thead><tr><th class="rn-col" style="width:40px;">#</th>';
+    +'<thead><tr><th class="rn-col" style="width:40px;position:sticky;top:0;z-index:5;">#</th>';
   resultCols.forEach(function(c){
     var arrow=sortCol===c?(sortAsc?' ▲':' ▼'):'';
     var hasFilter=colFilters[c]!=null;
     var iconFill=hasFilter?'currentColor':'none';
-    h+='<th style="position:relative;">'
+    h+='<th style="position:sticky;top:0;z-index:5;">'
       +'<div class="th-inner">'
       +'<span class="th-label" onclick="clickSort(\''+escJ(c)+'\')" title="Sort by '+esc(c)+'">'+esc(c)+arrow+'</span>'
       +'<button class="th-filter-btn'+(hasFilter?' active':'')+'" '
@@ -524,34 +525,20 @@ function renderTable(){
       +'<div class="col-resizer" onmousedown="startResize(event)"></div>'
       +'</th>';
   });
-  h+='</tr></thead><tbody id="vs-tbody"></tbody></table>';
-
-  var rarea=document.getElementById('rarea');
-  rarea.innerHTML=h;
-  rarea.scrollTop=0;
-  rarea.scrollLeft=0;
-
-  // Chunked rendering — handles 2 lakh+ rows without freezing
-  var CHUNK=2000, chunkIdx=0;
-  var tbody=document.getElementById('vs-tbody');
-  function renderChunk(){
-    var chunkEnd=Math.min(chunkIdx+CHUNK, filtered.length);
-    var rows='';
-    for(var i=chunkIdx;i<chunkEnd;i++){
-      var row=filtered[i];
-      rows+='<tr><td class="rn-col">'+(i+1)+'</td>';
-      resultCols.forEach(function(c){
-        var v=row[c];
-        if(v===null||v===undefined||v==='') rows+='<td class="null-cell">(null)</td>';
-        else rows+='<td>'+esc(String(v))+'</td>';
-      });
-      rows+='</tr>';
-    }
-    tbody.insertAdjacentHTML('beforeend', rows);
-    chunkIdx=chunkEnd;
-    if(chunkIdx<filtered.length) setTimeout(renderChunk, 0);
+  h+='</tr></thead><tbody id="vs-tbody">';
+  for(var i=0;i<filtered.length;i++){
+    var row=filtered[i];
+    h+='<tr><td class="rn-col">'+(i+1)+'</td>';
+    resultCols.forEach(function(c){
+      var v=row[c];
+      if(v===null||v===undefined||v==='')h+='<td class="null-cell">(null)</td>';
+      else h+='<td>'+esc(String(v))+'</td>';
+    });
+    h+='</tr>';
   }
-  renderChunk();
+  h+='</tbody></table></div>';
+
+  document.getElementById('rarea').innerHTML=h;
 
   (function(){
     var startX,startW,th,colIdx;
@@ -567,9 +554,9 @@ function renderTable(){
       var w=Math.max(60,startW+(e.clientX-startX));
       var cols=document.querySelectorAll('#vs-table colgroup col');
       if(cols[colIdx])cols[colIdx].style.width=w+'px';
-      var t=0;
-      cols.forEach(function(c){t+=parseInt(c.style.width)||COL_W;});
-      document.getElementById('vs-table').style.width=t+'px';
+      var total=0;
+      cols.forEach(function(c){total+=parseInt(c.style.width)||COL_W;});
+      document.getElementById('vs-table').style.width=total+'px';
     }
     function onUp(){
       document.removeEventListener('mousemove',onMove);
@@ -1053,28 +1040,28 @@ function sirScrollToMatch(idx){
   if(idx < 0 || idx >= _sirMatches.length) return;
   var match = _sirMatches[idx];
   if(!match) return;
-  // Clear old highlights
-  document.querySelectorAll('#vs-tbody .sir-hl, #vs-tbody .sir-hl-cur').forEach(function(td){
+  // Scroll the table wrapper div (first child of rarea)
+  var scroller = document.querySelector('#rarea > div');
+  if(!scroller) return;
+  // Find the actual TR row by row index
+  var tbody = document.getElementById('vs-tbody');
+  if(!tbody) return;
+  var row = tbody.querySelectorAll('tr')[match.rowIdx];
+  if(row) row.scrollIntoView({block:'center', behavior:'smooth'});
+  // Highlight — clear old, add new
+  document.querySelectorAll('#vs-tbody td.sir-hl, #vs-tbody td.sir-hl-cur').forEach(function(td){
     td.classList.remove('sir-hl','sir-hl-cur');
   });
-  var tbody=document.getElementById('vs-tbody');
-  if(!tbody) return;
-  var rarea=document.getElementById('rarea');
-  var tr=tbody.querySelectorAll('tr')[match.rowIdx];
-  if(tr && rarea){
-    // Scroll rarea so matched row is centered
-    var rowTop=tr.offsetTop;
-    var rowH=tr.offsetHeight||28;
-    var rareaH=rarea.clientHeight;
-    rarea.scrollTop=Math.max(0, rowTop-(rareaH/2)+(rowH/2));
-  }
-  // Highlight all matches, current one with orange border
-  _sirMatches.forEach(function(m,i){
-    var tr2=tbody.querySelectorAll('tr')[m.rowIdx];
-    if(!tr2) return;
-    var colIdx=resultCols.indexOf(m.col);
-    var td=tr2.querySelectorAll('td')[colIdx+1];
-    if(td) td.classList.add(i===idx?'sir-hl-cur':'sir-hl');
+  document.querySelectorAll('#vs-tbody td.null-cell.sir-hl, #vs-tbody td.null-cell.sir-hl-cur').forEach(function(td){
+    td.classList.remove('sir-hl','sir-hl-cur');
+  });
+  // Add highlights to all matches
+  _sirMatches.forEach(function(m, i){
+    var tr = tbody.querySelectorAll('tr')[m.rowIdx];
+    if(!tr) return;
+    var colIdx = resultCols.indexOf(m.col);
+    var td = tr.querySelectorAll('td')[colIdx+1];
+    if(td) td.classList.add(i === idx ? 'sir-hl-cur' : 'sir-hl');
   });
 }
 
