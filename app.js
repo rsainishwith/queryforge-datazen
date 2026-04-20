@@ -806,102 +806,94 @@ function formatSQL(){
   // Preserve string literals
   v=v.replace(/'(?:[^'\\]|''|\\.)*'/g,function(m){literals.push(m);return '\x00STR'+(literals.length-1)+'\x00';});
   
+  // Preserve CASE statements - replace CASE...END with placeholder
+  var caseCount=0;
+  var cases=[];
+  v=v.replace(/CASE\s+[\s\S]*?END/gi,function(m){
+    cases.push(m);
+    return '\x00CASE'+caseCount+'\x00';
+  });
+  
   // Normalize whitespace
   v=v.replace(/\s+/g,' ').trim();
   
-  // Replace keywords with newline + KEYWORD
-  var keywords=['SELECT','FROM','WHERE','GROUP BY','HAVING','ORDER BY','UNION ALL','UNION','INTERSECT','MINUS','JOIN','LEFT JOIN','RIGHT JOIN','INNER JOIN','FULL JOIN','CROSS JOIN','ON','AND','OR','CASE','WHEN','THEN','ELSE','END'];
+  // Add line breaks before main keywords (but not inside CASE)
+  v=v.replace(/\s+(SELECT|FROM|WHERE|GROUP\s+BY|HAVING|ORDER\s+BY|UNION\s+ALL|UNION|INTERSECT|MINUS)\s+/gi,'\n$1 ');
+  v=v.replace(/\s+(JOIN|LEFT\s+JOIN|RIGHT\s+JOIN|INNER\s+JOIN|FULL\s+JOIN|CROSS\s+JOIN)\s+/gi,'\n$1 ');
+  v=v.replace(/\s+(ON|AND|OR)\s+/gi,'\n$1 ');
   
-  keywords.forEach(function(kw){
-    var regex=new RegExp('\\b'+kw.replace(/\s/g,'\\s+')+'\\b','gi');
-    v=v.replace(regex,'\n'+kw);
-  });
-  
-  // Split by lines
+  // Split lines
   var lines=v.split('\n');
   var formatted=[];
-  var currentClause='';
   
   lines.forEach(function(line){
     var trimmed=line.trim();
     if(!trimmed) return;
     
-    var keywordMatch=trimmed.match(/^(SELECT|FROM|WHERE|GROUP BY|HAVING|ORDER BY|UNION|UNION ALL|INTERSECT|MINUS|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|FULL JOIN|CROSS JOIN|ON|AND|OR|CASE|WHEN|THEN|ELSE|END)\b/i);
+    // Check for main keywords
+    var kwMatch=trimmed.match(/^(SELECT|FROM|WHERE|GROUP BY|HAVING|ORDER BY|UNION|UNION ALL|INTERSECT|MINUS|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|FULL JOIN|CROSS JOIN|ON|AND|OR)\s+(.*)/i);
     
-    if(keywordMatch){
-      var keyword=keywordMatch[1].toUpperCase();
-      var rest=trimmed.substring(keyword.length).trim();
-      currentClause=keyword;
+    if(kwMatch){
+      var keyword=kwMatch[1].toUpperCase();
+      var rest=kwMatch[2];
       
-      // Handle different clauses
-      if(keyword==='FROM'){
+      if(keyword==='SELECT'){
+        formatted.push('SELECT');
+        // Split columns by comma (but preserve CASE placeholders)
+        var cols=rest.split(/,(?!\x00CASE)/);
+        cols.forEach(function(c,idx){
+          var col=c.trim();
+          if(col){
+            if(idx<cols.length-1){
+              formatted.push('    '+col+',');
+            } else {
+              formatted.push('    '+col);
+            }
+          }
+        });
+      }
+      else if(keyword==='FROM'){
         formatted.push('FROM');
         // Split tables by comma
-        if(rest){
-          var tables=rest.split(',');
-          tables.forEach(function(t){
-            if(t.trim()) formatted.push('    '+t.trim());
-          });
-        }
-      }
-      else if(keyword==='SELECT'){
-        formatted.push('SELECT');
-        if(rest){
-          var cols=rest.split(',');
-          cols.forEach(function(c,idx){
-            if(c.trim()){
-              if(idx===0) formatted.push('    '+c.trim());
-              else formatted.push('    '+c.trim());
+        var tables=rest.split(',');
+        tables.forEach(function(t,idx){
+          var tbl=t.trim();
+          if(tbl){
+            if(idx<tables.length-1){
+              formatted.push('    '+tbl+',');
+            } else {
+              formatted.push('    '+tbl);
             }
-          });
-        }
+          }
+        });
       }
       else if(keyword==='WHERE' || keyword==='HAVING'){
         formatted.push(keyword);
-        if(rest) formatted.push('    '+rest);
+        formatted.push('    '+rest);
       }
       else if(keyword==='AND' || keyword==='OR'){
         formatted.push('    '+keyword+' '+rest);
       }
-      else if(keyword.indexOf('JOIN')>-1){
+      else if(keyword.indexOf('JOIN')>-1 || keyword==='ON'){
         formatted.push('    '+keyword+' '+rest);
-      }
-      else if(keyword==='ON'){
-        formatted.push('    '+keyword+' '+rest);
-      }
-      else if(keyword==='GROUP BY' || keyword==='ORDER BY'){
-        formatted.push(keyword);
-        if(rest) formatted.push('    '+rest);
       }
       else {
-        formatted.push(keyword+' '+rest);
+        formatted.push(keyword);
+        if(rest) formatted.push('    '+rest);
       }
     }
     else {
       // Non-keyword lines
-      if(currentClause==='FROM'){
-        var tables=trimmed.split(',');
-        tables.forEach(function(t){
-          if(t.trim()) formatted.push('    '+t.trim());
-        });
-      }
-      else if(currentClause==='SELECT'){
-        var cols=trimmed.split(',');
-        cols.forEach(function(c){
-          if(c.trim()) formatted.push('    '+c.trim());
-        });
-      }
-      else if(currentClause==='WHERE' || currentClause==='HAVING'){
-        if(/^(AND|OR)/i.test(trimmed)) formatted.push('    '+trimmed);
-        else formatted.push('    '+trimmed);
-      }
-      else {
-        formatted.push('    '+trimmed);
-      }
+      formatted.push('    '+trimmed);
     }
   });
   
   v=formatted.join('\n');
+  
+  // Restore CASE statements
+  v=v.replace(/\x00CASE(\d+)\x00/g,function(_,i){
+    return cases[parseInt(i)];
+  });
   
   // Restore string literals
   v=v.replace(/\x00STR(\d+)\x00/g,function(_,i){return literals[parseInt(i)];});
@@ -912,7 +904,6 @@ function formatSQL(){
   doHL();
   doLN();
 }
-
 
 function changeFontSize(d){fontSize=Math.max(10,Math.min(20,fontSize+d));['sqled','hl','lnums'].forEach(function(id){document.getElementById(id).style.fontSize=fontSize+'px';});}
 function findInSQL(){var q=prompt('Find in SQL:');if(!q)return;var ta=document.getElementById('sqled'),idx=ta.value.toLowerCase().indexOf(q.toLowerCase());if(idx>-1){ta.focus();ta.setSelectionRange(idx,idx+q.length);}else alert('"'+q+'" not found.');}
