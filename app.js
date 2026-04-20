@@ -863,6 +863,7 @@ function formatSQL(){
   ta.value=v;
   doHL();
   doLN();
+   console.log('Formatted SQL:', ta.value.substring(0, 100));
 }
 
 function changeFontSize(d){fontSize=Math.max(10,Math.min(20,fontSize+d));['sqled','hl','lnums'].forEach(function(id){document.getElementById(id).style.fontSize=fontSize+'px';});}
