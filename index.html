@@ -121,8 +121,10 @@
           <button class="cadd" id="gtc-toggle-btn" onclick="toggleGtcPanel()" style="font-size:11px;padding:2px 8px;flex-shrink:0;" title="Go to Column">→ Column</button>
           <span id="res-info" style="flex:1;text-align:center;">No data found</span>
           <div class="sir-wrap">
-            <input class="sir-input" id="sir-input" type="text" placeholder="🔍 Search in Result" oninput="sirSearch(this.value)" onkeydown="sirKeyNav(event)"/>
-            <span class="sir-count" id="sir-count"></span>
+              <input class="sir-input" id="sir-input" type="text" placeholder="🔍 Search in Result" oninput="sirSearch(this.value)" onkeydown="sirKeyNav(event)"/>
+              <button class="sir-nav-btn" onclick="sirNav(-1)" title="Previous match">&#8593;</button>
+              <button class="sir-nav-btn" onclick="sirNav(1)" title="Next match">&#8595;</button>
+              <span class="sir-count" id="sir-count"></span>
           </div>
         </div>
         <div class="results-inner">
