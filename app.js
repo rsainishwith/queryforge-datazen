@@ -797,74 +797,127 @@ function sqlHL(code){
   s=s.replace(/\b(\d+\.?\d*)\b/g,'<span class="num">$1</span>');
   return s;
 }
+
 function clearEditor(){document.getElementById('sqled').value='';doHL();doLN();}
 function formatSQL(){
-  var ta=document.getElementById('sqled'), v=ta.value;
-  var literals=[];
-  v=v.replace(/'(?:[^'\\]|''|\\.)*'/g,function(m){literals.push(m);return '\x00STR'+(literals.length-1)+'\x00';});
-  v=v.replace(/\s+/g,' ').trim();
-  var lineBreakKws=[
-    'CROSS JOIN','NATURAL JOIN','LEFT OUTER JOIN','RIGHT OUTER JOIN','FULL OUTER JOIN',
-    'LEFT JOIN','RIGHT JOIN','INNER JOIN','FULL JOIN','JOIN',
-    'ORDER BY','GROUP BY','UNION ALL','UNION','INTERSECT','MINUS',
-    'SELECT','FROM','WHERE','HAVING','CONNECT BY','START WITH',
-    'PIVOT','UNPIVOT','MERGE INTO','WHEN MATCHED','WHEN NOT MATCHED'
+  var ta = document.getElementById('sqled');
+  var v = ta.value.trim();
+  if(!v){ return; }
+
+  // Step 1: Extract string literals and comments to protect them
+  var saved = [];
+  function saveToken(tok){
+    var id = '\x00T'+saved.length+'\x00';
+    saved.push(tok);
+    return id;
+  }
+
+  // Save block comments /* ... */
+  v = v.replace(/\/\*[\s\S]*?\*\//g, function(m){ return saveToken(m); });
+  // Save line comments -- ...
+  v = v.replace(/--[^\n]*/g, function(m){ return saveToken(m); });
+  // Save string literals '...'
+  v = v.replace(/'(?:[^'\\]|''|\\.)*'/g, function(m){ return saveToken(m); });
+
+  // Step 2: Uppercase only SQL keywords (not identifiers)
+  var KWS = [
+    'SELECT','DISTINCT','FROM','WHERE','AND','OR','NOT','IN','EXISTS',
+    'BETWEEN','LIKE','IS','NULL','JOIN','LEFT','RIGHT','INNER','OUTER',
+    'FULL','CROSS','ON','GROUP\\s+BY','ORDER\\s+BY','HAVING','UNION',
+    'ALL','AS','INSERT','INTO','VALUES','UPDATE','SET','DELETE','CREATE',
+    'TABLE','DROP','ALTER','WITH','CASE','WHEN','THEN','ELSE','END',
+    'BEGIN','COMMIT','ROLLBACK','BY','CONNECT','PRIOR','LEVEL','MERGE',
+    'USING','MATCHED','DECLARE','RETURN','ASC','DESC','FETCH','NEXT',
+    'ROWS','ONLY','ROWNUM','PIVOT','TRUNCATE','START\\s+WITH',
+    'NVL','NVL2','DECODE','COALESCE','TRUNC','TO_DATE','TO_CHAR',
+    'TO_NUMBER','TRIM','UPPER','LOWER','SUBSTR','INSTR','LENGTH',
+    'COUNT','SUM','AVG','MAX','MIN','NULLIF','GREATEST','LEAST',
+    'EXTRACT','CAST','REPLACE','ROUND','FLOOR','CEIL','MOD','ABS',
+    'RANK','DENSE_RANK','ROW_NUMBER','OVER','PARTITION',
+    'LEAD','LAG','LISTAGG','WITHIN','TABLE'
   ];
-  lineBreakKws.forEach(function(k){
-    var re=new RegExp('(?<![\\w(])('+k+')(?![\\w])', 'gi');
-    v=v.replace(re, function(_,m){ return '\n'+m.toUpperCase(); });
+  KWS.forEach(function(kw){
+    var re = new RegExp('(?<![\\w.])(' + kw + ')(?![\\w.])', 'gi');
+    v = v.replace(re, function(m){ return m.toUpperCase(); });
   });
-  v=v.replace(/(?<=[\w\x00)])\s+(AND|OR)\s+(?=[\w\x00('])/gi, function(_,kw){ return '\n  '+kw.toUpperCase()+' '; });
-  (function(){
-    function splitTopLevel(str){
-      var parts=[], cur='', d=0;
-      for(var i=0;i<str.length;i++){
-        var c=str[i];
-        if(c==='(') d++;if(c===')') d--;
-        if(c===',' && d===0){ parts.push(cur.trim()); cur=''; }
-        else cur+=c;
-      }
-      if(cur.trim()) parts.push(cur.trim());
-      return parts;
-    }
-    var lines=v.split('\n'), out=[];
-    var clause=null;
-    lines.forEach(function(line){
-      var trimmed=line.trim();
-      if(/^SELECT\b/i.test(trimmed)) clause='select';
-      else if(/^FROM\b/i.test(trimmed)) clause='from';
-      else if(/^(WHERE|JOIN|LEFT|RIGHT|INNER|FULL|CROSS|NATURAL|ORDER|GROUP|HAVING|UNION|INTERSECT|MINUS|CONNECT|START|PIVOT|MERGE)\b/i.test(trimmed)) clause=null;
-      if(clause==='select'){
-        var kwMatch=trimmed.match(/^(SELECT\s+(?:DISTINCT\s+|ALL\s+)?)/i);
-        var prefix=kwMatch?kwMatch[1]:'';
-        var rest=trimmed.slice(prefix.length);
-        var parts=splitTopLevel(rest);
-        if(parts.length>1){
-          var indent=' '.repeat(prefix.length);
-          out.push(prefix+parts[0]+',');
-          for(var j=1;j<parts.length;j++){out.push(indent+parts[j]+(j===parts.length-1?'':','));}
-          return;
-        }
-      } else if(clause==='from'){
-        var fwMatch=trimmed.match(/^(FROM\s+)/i);
-        var fprefix=fwMatch?fwMatch[1]:'';
-        var frest=trimmed.slice(fprefix.length);
-        var fparts=splitTopLevel(frest);
-        if(fparts.length>1){
-          var findent=' '.repeat(fprefix.length);
-          out.push(fprefix+fparts[0]+',');
-          for(var j=1;j<fparts.length;j++){out.push(findent+fparts[j]+(j===fparts.length-1?'':','));}
-          clause=null;return;
-        }
-      }
-      out.push(line);
-    });
-    v=out.join('\n');
-  })();
-  v=v.replace(/\x00STR(\d+)\x00/g, function(_,i){ return literals[parseInt(i)]; });
-  v=v.replace(/^\n+/,'').replace(/\n{3,}/g,'\n\n').trim();
-  ta.value=v; doHL(); doLN();
+
+  // Step 3: Normalize whitespace (preserve newlines for now)
+  v = v.replace(/[ \t]+/g, ' ');
+
+  // Step 4: Collapse everything to one line for re-formatting
+  v = v.replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // Step 5: Add newlines before major clauses
+  var majorClauses = [
+    'SELECT','SELECT DISTINCT','FROM','WHERE','GROUP BY','ORDER BY',
+    'HAVING','UNION ALL','UNION','INTERSECT','MINUS',
+    'LEFT OUTER JOIN','RIGHT OUTER JOIN','FULL OUTER JOIN',
+    'LEFT JOIN','RIGHT JOIN','INNER JOIN','CROSS JOIN','FULL JOIN','JOIN',
+    'ON','CONNECT BY','START WITH','PIVOT','MERGE INTO',
+    'WHEN MATCHED','WHEN NOT MATCHED'
+  ];
+  majorClauses.forEach(function(kw){
+    var re = new RegExp('(?<![\\w\x00])\\b(' + kw.replace(/\s+/g,'\\s+') + ')\\b', 'g');
+    v = v.replace(re, '\n$1');
+  });
+
+  // Step 6: Format AND/OR in WHERE — each on new line with indent
+  // But NOT inside BETWEEN x AND y — handle that carefully
+  v = v.replace(/\bAND\b(?!\s*\(?\s*\()/g, function(match, offset){
+    // Check if preceded by BETWEEN context — look back 60 chars
+    var before = v.slice(Math.max(0, offset-60), offset);
+    if(/BETWEEN\s+\S+\s*$/i.test(before)) return match; // keep inline
+    return '\n    AND';
+  });
+  v = v.replace(/\n\s*AND\s+(TRUNC|NVL|COALESCE|TO_DATE)/g, '\n    AND $1');
+
+  v = v.replace(/(?<=\bWHERE\b[^\n]*)\bOR\b/g, '\n    OR');
+
+  // Step 7: Format CASE WHEN THEN ELSE END
+  v = v.replace(/\bCASE\b/g, '\n        CASE');
+  v = v.replace(/\bWHEN\b/g, '\n            WHEN');
+  v = v.replace(/\bTHEN\b/g, ' THEN');
+  v = v.replace(/\bELSE\b/g, '\n            ELSE');
+  v = v.replace(/\bEND\b/g, '\n        END');
+
+  // Step 8: SELECT columns — one per line
+  v = v.replace(/^(\s*SELECT(?:\s+DISTINCT)?)\s+/m, function(m, kw){
+    return kw + '\n    ';
+  });
+  // Split SELECT columns by top-level commas
+  v = v.replace(/^(\s*SELECT(?:\s+DISTINCT)?\s*)([\s\S]*?)(?=\nFROM)/m, function(m, sel, cols){
+    var parts = splitTopLevel(cols.trim());
+    return sel + parts.join(',\n    ');
+  });
+
+  // Step 9: FROM — each table on new line
+  v = v.replace(/^(\s*FROM)\s+/m, '$1\n    ');
+  v = v.replace(/^(\s*FROM\s*[\s\S]*?)(?=\nWHERE)/m, function(m){
+    var parts = splitTopLevel(m.replace(/^\s*FROM\s*/,'').trim());
+    return 'FROM\n    ' + parts.join(',\n    ');
+  });
+
+  // Step 10: GROUP BY columns — each on new line
+  v = v.replace(/^(\s*GROUP BY)\s+/m, '$1\n    ');
+  v = v.replace(/^(\s*GROUP BY\s*)([\s\S]*)$/m, function(m, kw, cols){
+    var parts = splitTopLevel(cols.trim());
+    return kw + parts.join(',\n    ');
+  });
+
+  // Step 11: ORDER BY columns — each on new line
+  v = v.replace(/^(\s*ORDER BY)\s+/m, '$1\n    ');
+
+  // Step 12: Restore saved tokens
+  v = v.replace(/\x00T(\d+)\x00/g, function(_, i){ return saved[parseInt(i)]; });
+
+  // Step 13: Clean up extra blank lines
+  v = v.replace(/\n{3,}/g, '\n\n').replace(/^\n+/, '').trim();
+
+  ta.value = v;
+  doHL();
+  doLN();
 }
+
 function changeFontSize(d){fontSize=Math.max(10,Math.min(20,fontSize+d));['sqled','hl','lnums'].forEach(function(id){document.getElementById(id).style.fontSize=fontSize+'px';});}
 function findInSQL(){var q=prompt('Find in SQL:');if(!q)return;var ta=document.getElementById('sqled'),idx=ta.value.toLowerCase().indexOf(q.toLowerCase());if(idx>-1){ta.focus();ta.setSelectionRange(idx,idx+q.length);}else alert('"'+q+'" not found.');}
 
