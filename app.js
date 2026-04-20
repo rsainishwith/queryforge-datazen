@@ -1075,6 +1075,13 @@ function sirKeyNav(e){
   }
 }
 
+  function sirNav(dir){
+  if(!_sirMatches.length) return;
+  _sirIdx = (_sirIdx + dir + _sirMatches.length) % _sirMatches.length;
+  document.getElementById('sir-count').textContent = (_sirIdx + 1) + ' / ' + _sirMatches.length;
+  sirScrollToMatch(_sirIdx);
+}
+
 /* ══════════ SIR STYLES (injected dynamically) ═════════════════ */
 (function(){
   var s = document.createElement('style');
