@@ -588,13 +588,15 @@ function vsRenderVisible(scrollTop){
     h+='<tr style="height:'+vsRowH+'px;"><td class="rn-col">'+(i+1)+'</td>';
     resultCols.forEach(function(c){
       var v=row[c];
-      var cellClass='';
+    
+    var cellClass='';
+      // Build the actual rowIdx in filtered array
+      var actualRowIdx = startIdx + (i - startIdx);
       
       // Check if this cell matches search
       if(_sirLastQ && v!==null && v!==undefined && v!=='' && String(v).toLowerCase().includes(_sirLastQ)){
         // Check if this is the current match
-        //var isCurrentMatch = _sirIdx >= 0 && _sirMatches[_sirIdx] && _sirMatches[_sirIdx].rowIdx === i && _sirMatches[_sirIdx].col === c;
-        var isCurrentMatch = _sirIdx >= 0 && _sirMatches[_sirIdx] && _sirMatches[_sirIdx].rowIdx === (vsStart + (i - startIdx)) && _sirMatches[_sirIdx].col === c;
+        var isCurrentMatch = _sirIdx >= 0 && _sirMatches[_sirIdx] && _sirMatches[_sirIdx].rowIdx === actualRowIdx && _sirMatches[_sirIdx].col === c;
         cellClass = isCurrentMatch ? 'sir-hl-cur' : 'sir-hl';
       }
       
