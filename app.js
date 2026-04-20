@@ -593,7 +593,8 @@ function vsRenderVisible(scrollTop){
       // Check if this cell matches search
       if(_sirLastQ && v!==null && v!==undefined && v!=='' && String(v).toLowerCase().includes(_sirLastQ)){
         // Check if this is the current match
-        var isCurrentMatch = _sirIdx >= 0 && _sirMatches[_sirIdx] && _sirMatches[_sirIdx].rowIdx === i && _sirMatches[_sirIdx].col === c;
+        //var isCurrentMatch = _sirIdx >= 0 && _sirMatches[_sirIdx] && _sirMatches[_sirIdx].rowIdx === i && _sirMatches[_sirIdx].col === c;
+        var isCurrentMatch = _sirIdx >= 0 && _sirMatches[_sirIdx] && _sirMatches[_sirIdx].rowIdx === (vsStart + (i - startIdx)) && _sirMatches[_sirIdx].col === c;
         cellClass = isCurrentMatch ? 'sir-hl-cur' : 'sir-hl';
       }
       
