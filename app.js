@@ -484,8 +484,7 @@ function renderTable(){
   var total=resultData.length;
   document.getElementById('res-info').textContent=
     filtered.length+' row'+(filtered.length!==1?'s':'')
-    +(filtered.length!==total?' (filtered from '+total+')':'')
-    +' in '+elapsed+'s';
+    +(filtered.length!==total?' (filtered from '+total+')':'')+' in '+elapsed+'s';
   document.getElementById('srows').textContent=filtered.length+' rows';
   document.getElementById('stime').textContent=elapsed+'s';
   document.getElementById('sir-input').value='';
@@ -500,43 +499,40 @@ function renderTable(){
 
   var COL_W=160;
   var totalW=40+resultCols.length*COL_W;
-  var colgroup='<colgroup><col style="width:40px;">'
-    +resultCols.map(function(){return '<col style="width:'+COL_W+'px;">';}).join('')
-    +'</colgroup>';
+  var colgroup='<colgroup><col style="width:40px;">'+
+    resultCols.map(function(){return '<col style="width:'+COL_W+'px;">';}).join('')+
+    '</colgroup>';
 
-  var h='<div id="tbl-scroller" style="width:100%;height:100%;overflow-x:auto;overflow-y:auto;">'
-    +'<table id="vs-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'
-    +colgroup
-    +'<thead><tr><th class="rn-col" style="width:40px;position:sticky;top:0;z-index:5;">#</th>';
+  // Render directly into rarea — rarea itself is the scroll container
+  var h='<table id="vs-table" style="table-layout:fixed;width:'+totalW+'px;min-width:100%;border-collapse:collapse;">'+
+    colgroup+
+    '<thead><tr><th class="rn-col" style="width:40px;position:sticky;top:0;z-index:5;">#</th>';
   resultCols.forEach(function(c){
     var arrow=sortCol===c?(sortAsc?' ▲':' ▼'):'';
     var hasFilter=colFilters[c]!=null;
     var iconFill=hasFilter?'currentColor':'none';
-    h+='<th style="position:sticky;top:0;z-index:5;">'
-      +'<div class="th-inner">'
-      +'<span class="th-label" onclick="clickSort(''+escJ(c)+'')" title="Sort by '+esc(c)+'">'+esc(c)+arrow+'</span>'
-      +'<button class="th-filter-btn'+(hasFilter?' active':'')+'" '
-      +'onclick="fpOpen(event,''+escJ(c)+'')" title="Filter">'
-      +'<svg width="11" height="11" viewBox="0 0 24 24" fill="'+iconFill+'" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'
-      +'<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'
-      +'</svg>'
-      +'</button>'
-      +'</div>'
-      +'<div class="col-resizer" onmousedown="startResize(event)"></div>'
-      +'</th>';
+    h+='<th style="position:sticky;top:0;z-index:5;">'+
+      '<div class="th-inner">'+
+      '<span class="th-label" onclick="clickSort(\''+escJ(c)+'\')" title="Sort by '+esc(c)+'">'+esc(c)+arrow+'</span>'+
+      '<button class="th-filter-btn'+(hasFilter?' active':'')+'" '+
+      'onclick="fpOpen(event,\''+escJ(c)+'\')" title="Filter">'+
+      '<svg width="11" height="11" viewBox="0 0 24 24" fill="'+iconFill+'" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">'+
+      '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'+
+      '</svg></button></div>'+
+      '<div class="col-resizer" onmousedown="startResize(event)"></div></th>';
   });
-  h+='</tr></thead><tbody id="vs-tbody"></tbody></table></div>';
+  h+='</tr></thead><tbody id="vs-tbody"></tbody></table>';
 
-  document.getElementById('rarea').innerHTML=h;
+  var rarea=document.getElementById('rarea');
+  rarea.innerHTML=h;
 
-  // Render rows in chunks to avoid browser freeze with large data
-  var CHUNK=2000;
-  var idx=0;
+  // Render rows in chunks — handles 2 lakh+ rows without freezing
+  var CHUNK=2000, idx=0;
   var tbody=document.getElementById('vs-tbody');
   function renderChunk(){
-    var end=Math.min(idx+CHUNK,filtered.length);
+    var chunkEnd=Math.min(idx+CHUNK,filtered.length);
     var rows='';
-    for(var i=idx;i<end;i++){
+    for(var i=idx;i<chunkEnd;i++){
       var row=filtered[i];
       rows+='<tr><td class="rn-col">'+(i+1)+'</td>';
       resultCols.forEach(function(c){
@@ -547,10 +543,8 @@ function renderTable(){
       rows+='</tr>';
     }
     tbody.insertAdjacentHTML('beforeend',rows);
-    idx=end;
-    if(idx<filtered.length){
-      setTimeout(renderChunk,0);
-    }
+    idx=chunkEnd;
+    if(idx<filtered.length) setTimeout(renderChunk,0);
   }
   renderChunk();
 
@@ -568,8 +562,7 @@ function renderTable(){
       var w=Math.max(60,startW+(e.clientX-startX));
       var cols=document.querySelectorAll('#vs-table colgroup col');
       if(cols[colIdx])cols[colIdx].style.width=w+'px';
-      var t=0;
-      cols.forEach(function(c){t+=parseInt(c.style.width)||COL_W;});
+      var t=0;cols.forEach(function(c){t+=parseInt(c.style.width)||COL_W;});
       document.getElementById('vs-table').style.width=t+'px';
     }
     function onUp(){
@@ -1058,12 +1051,17 @@ function sirScrollToMatch(idx){
   document.querySelectorAll('#vs-tbody .sir-hl, #vs-tbody .sir-hl-cur').forEach(function(td){
     td.classList.remove('sir-hl','sir-hl-cur');
   });
-  // Scroll to matched row
   var tbody = document.getElementById('vs-tbody');
   if(!tbody) return;
+  // Scroll rarea to the matched row
+  var rarea = document.getElementById('rarea');
   var tr = tbody.querySelectorAll('tr')[match.rowIdx];
-  if(tr) tr.scrollIntoView({block:'center', behavior:'smooth'});
-  // Highlight all matches, current one brighter
+  if(tr && rarea){
+    var trTop = tr.offsetTop;
+    var rareaH = rarea.clientHeight;
+    rarea.scrollTop = Math.max(0, trTop - (rareaH/2) + (tr.offsetHeight/2));
+  }
+  // Highlight all matches
   _sirMatches.forEach(function(m, i){
     var tr2 = tbody.querySelectorAll('tr')[m.rowIdx];
     if(!tr2) return;
