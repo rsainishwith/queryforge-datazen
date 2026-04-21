@@ -667,11 +667,7 @@ thead .rn-col{background:#1e293b !important;color:#6b7280;font-weight:600 !impor
   margin-right: 3px;
 }
 
-/* ── Editor section flex fix ── */
-.editor-section {
-  flex: 1;
-  min-width: 0;
-}
+
 
 /* ══════════ SIDEBAR RESIZER ════════════════════════════════════ */
 .sidebar-resizer {
@@ -822,9 +818,6 @@ thead .rn-col{background:#1e293b !important;color:#6b7280;font-weight:600 !impor
   font-size: 8px;
   margin-right: 3px;
 }
-
-/* ── Editor flex fix ── */
-.editor-section { flex: 1; min-width: 0; }
 
 .col-resizer {
   position: absolute;
