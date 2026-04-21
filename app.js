@@ -1415,9 +1415,7 @@ function loadMetaFromFiles(){
     if(loaded+failed<META_FILES.length) return;
     acMetaLoaded=true;
     var tCount=Object.keys(acMeta).length;
-    if(tCount>0) setMetaStatus('ok','⚡ Metadata:'
-                               //+tCount+
-                               ' tables loaded');
+    if(tCount>0) setMetaStatus('ok','⚡ Metadata: tables loaded');
     else setMetaStatus('failed','⚠ Metadata: not found');
   }
 }
