@@ -1281,11 +1281,11 @@ function escJ(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").repl
     var ctx = getContext(val, cursorPos);
     var results = [];
     if(['FROM','JOIN','LEFT JOIN','RIGHT JOIN','INNER JOIN','OUTER JOIN'].indexOf(ctx.lastKw) > -1){
-      //Object.keys(acMeta).forEach(function(t){ if(t.toUpperCase().startsWith(wu)) results.push({label:t, type:'tbl'}); });
       Object.keys(acMeta).forEach(function(t){ if(t.toUpperCase().includes(wu)) results.push({label:t, type:'tbl'}); });
+      return results;
     }
     var colCtx = ['SELECT','WHERE','SET','ON','HAVING','GROUP BY','ORDER BY'];
-    if(colCtx.indexOf(ctx.lastKw) > -1){
+    if(colCtx.indexOf(ctx.lastKw) > -1 || ['FROM','JOIN','LEFT JOIN','RIGHT JOIN','INNER JOIN','OUTER JOIN'].indexOf(ctx.lastKw) === -1){
       var colsSeen = new Set();
       ctx.tables.forEach(function(t){
         var cols = acMeta[t] || acMeta[t.toUpperCase()] || [];
