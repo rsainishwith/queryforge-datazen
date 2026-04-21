@@ -1395,7 +1395,7 @@ var META_FILES = [
 ];
 
 function loadMetaFromFiles(){
-  setMetaStatus('loading','⏳ Loading metadata…');
+  setMetaStatus('loading','⏳ Loading Metadata…');
   var loaded=0, failed=0;
   META_FILES.forEach(function(file){
     fetch(file)
@@ -1415,8 +1415,8 @@ function loadMetaFromFiles(){
     if(loaded+failed<META_FILES.length) return;
     acMetaLoaded=true;
     var tCount=Object.keys(acMeta).length;
-    if(tCount>0) setMetaStatus('ok','⚡ Metadata: tables loaded');
-    else setMetaStatus('failed','⚠ Metadata: not found');
+    if(tCount>0) setMetaStatus('ok','⚡ Metadata: Tables Loaded');
+    else setMetaStatus('failed','⚠ Metadata: Tables not found');
   }
 }
 
