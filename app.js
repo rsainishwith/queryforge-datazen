@@ -37,6 +37,7 @@ window.onload=function(){
   ta.addEventListener('click',updatePos);
   initResizer();
   initCatalogResizer();
+  loadMetaFromFiles();
   doHL();doLN();
   setTimeout(function(){checkProxy(function(){});},500);
   initSidebarCollapsed();
@@ -1384,28 +1385,38 @@ function escJ(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").repl
 /* ══════════ LOAD METADATA ═════════════════════════════════════ */
 var acMeta = {}, acMetaLoaded = false;
 
-function loadMetadata(){
-  if(!activeConn){ alert('Select a connection first.'); return; }
-  setMetaStatus('loading', '⏳ Loading metadata…');
-  var sql = "SELECT TABLE_NAME, COLUMN_NAME FROM ALL_TAB_COLUMNS WHERE OWNER = SYS_CONTEXT('USERENV','CURRENT_SCHEMA') ORDER BY TABLE_NAME, COLUMN_ID";
-  var auth = basicAuth(activeConn), conn = activeConn;
-  soapCall(conn.url+'/xmlpserver/services/ExternalReportWSSService', buildRunReportSOAP(conn, sql), auth)
-    .then(function(resp){ return resp.text(); })
-    .then(function(xml){
-      var p = parseCSVResponse(xml);
-      if(p.error || !p.rows.length){ setMetaStatus('failed', '⚠ Metadata: no data — click ⚡ Meta to retry'); return; }
-      acMeta = {};
-      p.rows.forEach(function(r){
-        var t = (r['TABLE_NAME']||r['table_name']||'').trim();
-        var c = (r['COLUMN_NAME']||r['column_name']||'').trim();
-        if(t && c){ if(!acMeta[t]) acMeta[t] = []; acMeta[t].push(c); }
-      });
-      acMetaLoaded = true;
-      var tCount = Object.keys(acMeta).length;
-      setMetaStatus('ok', '⚡ Metadata: '+tCount+' tables loaded');
-    })
-    .catch(function(){ setMetaStatus('failed', '⚠ Metadata failed — click ⚡ Meta to retry'); });
+var META_FILES = [
+  'common_meta.json','cx_sales_meta.json','financials_meta.json',
+  'hcm_meta.json','manufacturing_meta.json','other_meta.json',
+  'procurement_meta.json','projects_meta.json','scm_meta.json'
+];
+
+function loadMetaFromFiles(){
+  setMetaStatus('loading','⏳ Loading metadata…');
+  var loaded=0, failed=0;
+  META_FILES.forEach(function(file){
+    fetch(file)
+      .then(function(r){ if(!r.ok) throw new Error('Not found'); return r.json(); })
+      .then(function(data){
+        Object.keys(data).forEach(function(tbl){
+          if(!acMeta[tbl]) acMeta[tbl]=[];
+          data[tbl].forEach(function(col){
+            if(acMeta[tbl].indexOf(col)===-1) acMeta[tbl].push(col);
+          });
+        });
+        loaded++; check();
+      })
+      .catch(function(){ failed++; check(); });
+  });
+  function check(){
+    if(loaded+failed<META_FILES.length) return;
+    acMetaLoaded=true;
+    var tCount=Object.keys(acMeta).length;
+    if(tCount>0) setMetaStatus('ok','⚡ Metadata: '+tCount+' tables loaded');
+    else setMetaStatus('failed','⚠ Metadata: JSON files not found');
+  }
 }
+
 function setMetaStatus(state, msg){
   var el = document.getElementById('meta-status');
   if(!el) return;
