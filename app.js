@@ -645,6 +645,13 @@ function fpRenderList(values){
 }
 function fpSearchValues(q){
   var vals=q.trim()?fpAllValues.filter(function(v){return v.toLowerCase().includes(q.toLowerCase());}):fpAllValues;
+  // If searching, uncheck values not in search results so filter works correctly
+  if(q.trim()){
+    var visibleSet=new Set(vals);
+    fpAllValues.forEach(function(v){
+      if(!visibleSet.has(v)) fpPending.delete(v);
+    });
+  }
   fpRenderList(vals);
 }
 function fpToggleVal(v){
@@ -673,13 +680,18 @@ function fpClearFilter(){
   colFilters[col]=null;renderTable();
 }
 function fpApply(){
-  if(!fpCol)return;
-  if(fpPending.size>=fpAllValues.length&&fpAllValues.every(function(v){return fpPending.has(v);})){
-    colFilters[fpCol]=null;
-  }else{
-    colFilters[fpCol]=new Set(fpPending);
+  if(!fpCol) return;
+  // If all values are selected — clear filter
+  if(fpPending.size >= fpAllValues.length && fpAllValues.every(function(v){ return fpPending.has(v); })){
+    colFilters[fpCol] = null;
+  } else if(fpPending.size === 0){
+    // Nothing selected — clear filter
+    colFilters[fpCol] = null;
+  } else {
+    colFilters[fpCol] = new Set(fpPending);
   }
-  fpClose();renderTable();
+  fpClose();
+  renderTable();
 }
 function fpClose(){
   var popup=document.getElementById('filter-popup');
