@@ -643,17 +643,12 @@ function fpRenderList(values){
   });
   list.innerHTML=h;
 }
+
 function fpSearchValues(q){
   var vals=q.trim()?fpAllValues.filter(function(v){return v.toLowerCase().includes(q.toLowerCase());}):fpAllValues;
-  // If searching, uncheck values not in search results so filter works correctly
-  if(q.trim()){
-    var visibleSet=new Set(vals);
-    fpAllValues.forEach(function(v){
-      if(!visibleSet.has(v)) fpPending.delete(v);
-    });
-  }
   fpRenderList(vals);
 }
+
 function fpToggleVal(v){
   if(fpPending.has(v))fpPending.delete(v);else fpPending.add(v);
   fpSearchValues(document.getElementById('fp-search').value);
@@ -1130,6 +1125,7 @@ function buildGtcList(filter){
   }).join('');
 }
 function gtcFilter(q){ buildGtcList(q); }
+
 function gtcScrollTo(colName){
   var idx = resultCols.indexOf(colName);
   if (idx === -1) return;
@@ -1138,8 +1134,9 @@ function gtcScrollTo(colName){
   var th = table.querySelectorAll('thead th')[idx + 1];
   if (!th) th = table.querySelectorAll('thead th')[idx];
   if (!th) return;
-  var wrap = document.getElementById('rarea');
-  wrap.scrollLeft = th.offsetLeft - wrap.offsetLeft - 8;
+  var scroller = document.querySelector('#rarea > div');
+  if(!scroller) return;
+  scroller.scrollLeft = th.offsetLeft - 8;
   document.querySelectorAll('.gtc-item').forEach(function(el){ el.classList.remove('hl'); });
   document.querySelectorAll('.gtc-item').forEach(function(el){
     if (el.textContent === colName) el.classList.add('hl');
