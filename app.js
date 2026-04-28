@@ -1129,14 +1129,17 @@ function gtcFilter(q){ buildGtcList(q); }
 function gtcScrollTo(colName){
   var idx = resultCols.indexOf(colName);
   if (idx === -1) return;
-  var table = document.querySelector('#rarea table');
-  if (!table) return;
-  var th = table.querySelectorAll('thead th')[idx + 1];
-  if (!th) th = table.querySelectorAll('thead th')[idx];
-  if (!th) return;
   var scroller = document.querySelector('#rarea > div');
   if(!scroller) return;
-  scroller.scrollLeft = th.offsetLeft - 8;
+  var table = scroller.querySelector('table');
+  if (!table) return;
+  var ths = table.querySelectorAll('thead th');
+  var th = ths[idx + 1]; // +1 because first th is # column
+  if (!th) return;
+  var tableRect = table.getBoundingClientRect();
+  var thRect = th.getBoundingClientRect();
+  var scrollAmount = scroller.scrollLeft + (thRect.left - tableRect.left) - 8;
+  scroller.scrollLeft = scrollAmount;
   document.querySelectorAll('.gtc-item').forEach(function(el){ el.classList.remove('hl'); });
   document.querySelectorAll('.gtc-item').forEach(function(el){
     if (el.textContent === colName) el.classList.add('hl');
