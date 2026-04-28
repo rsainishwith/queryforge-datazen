@@ -1131,15 +1131,12 @@ function gtcScrollTo(colName){
   if (idx === -1) return;
   var scroller = document.querySelector('#rarea > div');
   if(!scroller) return;
-  var table = scroller.querySelector('table');
-  if (!table) return;
-  var ths = table.querySelectorAll('thead th');
-  var th = ths[idx + 1]; // +1 because first th is # column
+  var ths = scroller.querySelectorAll('table thead th');
+  var th = ths[idx + 1];
   if (!th) return;
-  var tableRect = table.getBoundingClientRect();
+  var scrollerRect = scroller.getBoundingClientRect();
   var thRect = th.getBoundingClientRect();
-  var scrollAmount = scroller.scrollLeft + (thRect.left - tableRect.left) - 8;
-  scroller.scrollLeft = scrollAmount;
+  scroller.scrollLeft = scroller.scrollLeft + (thRect.left - scrollerRect.left) - 8;
   document.querySelectorAll('.gtc-item').forEach(function(el){ el.classList.remove('hl'); });
   document.querySelectorAll('.gtc-item').forEach(function(el){
     if (el.textContent === colName) el.classList.add('hl');
